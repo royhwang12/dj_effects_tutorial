@@ -291,14 +291,21 @@ def submit_quiz(quiz_id: int) -> Any:
     question = next((q for q in QUIZ if q["id"] == quiz_id), None)
     if question is None:
         return redirect(url_for("quiz_results"))
+    # Support both traditional form submissions and JSON/AJAX submissions.
+    payload: dict[str, Any] = {}
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+    else:
+        # read from form and normalize into a dict similar to JSON payload
+        payload = {k: v for k, v in request.form.items()}
 
     answer: Any
     if question["type"] == "single":
-        answer = request.form.get("choice")
+        answer = payload.get("choice")
     elif question["type"] == "multi_tf":
-        answer = [request.form.get(f"tf_{idx}") for idx, _ in enumerate(question["statements"])]
+        answer = [payload.get(f"tf_{idx}") for idx, _ in enumerate(question["statements"]) ]
     else:
-        answer = [request.form.get(f"scenario_{idx}") for idx, _ in enumerate(question["scenarios"])]
+        answer = [payload.get(f"scenario_{idx}") for idx, _ in enumerate(question["scenarios"]) ]
 
     APP_STATE["quiz_answers"][str(quiz_id)] = answer
     track_event(
@@ -306,6 +313,56 @@ def submit_quiz(quiz_id: int) -> Any:
         {"quiz_id": quiz_id, "answer": answer},
     )
 
+    # If this is an AJAX/JSON request, respond with immediate feedback about correctness
+    next_url = url_for("quiz_results") if quiz_id >= len(QUIZ) else url_for("quiz_page", quiz_id=quiz_id + 1)
+    if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        # compute correctness for this single question using same logic as score_quiz
+        q = question
+        correct = False
+        best_answer = ""
+        per_item = None
+
+        if q["type"] == "single":
+            correct_index = q["correct"]
+            best_answer = q["choices"][correct_index]
+            correct = str(correct_index) == str(answer)
+        elif q["type"] == "multi_tf":
+            expected = ["true" if s["correct"] else "false" for s in q["statements"]]
+            best_answer = ", ".join(expected)
+            cleaned = ["" if x is None else x for x in (answer or [])]
+            correct = cleaned == expected
+            # build per-statement details
+            per_item = []
+            for idx, stmt in enumerate(q["statements"]):
+                user_val = None
+                try:
+                    user_val = (answer or [])[idx]
+                except Exception:
+                    user_val = None
+                user_val = "" if user_val is None else user_val
+                expected_val = expected[idx]
+                is_correct = user_val == expected_val
+                per_item.append(
+                    {
+                        "index": idx,
+                        "user": user_val,
+                        "expected": expected_val,
+                        "correct": is_correct,
+                        "explanation": stmt.get("explanation", ""),
+                    }
+                )
+        else:
+            expected = [str(s["correct"]) for s in q["scenarios"]]
+            best_answer = ", ".join(expected)
+            cleaned = ["" if x is None else x for x in (answer or [])]
+            correct = cleaned == expected
+
+        resp_payload = {"ok": True, "correct": correct, "best_answer": best_answer, "next": next_url}
+        if per_item is not None:
+            resp_payload["per_item"] = per_item
+        return jsonify(resp_payload)
+
+    # Fallback: regular form submit -> redirect to next page
     if quiz_id >= len(QUIZ):
         return redirect(url_for("quiz_results"))
     return redirect(url_for("quiz_page", quiz_id=quiz_id + 1))

@@ -4,11 +4,11 @@
   <header class="top-nav">
     <div class="brand">FX Trainer</div>
     <div class="nav-pills-wrap">
-      <span class="nav-pill active">Home</span>
-      <span class="nav-pill">Effects</span>
-      <span class="nav-pill">Examples</span>
-      <span class="nav-pill">Quiz</span>
-      <span class="nav-pill">Summary</span>
+      <a class="nav-pill active" href="{{ url_for('learn_page', lesson_id=1) }}">Home</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=4) }}">Examples</a>
+      <a class="nav-pill" href="{{ url_for('quiz_page', quiz_id=1) }}">Quiz</a>
+      <a class="nav-pill" href="{{ url_for('quiz_results') }}">Summary</a>
     </div>
   </header>
 

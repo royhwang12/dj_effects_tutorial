@@ -195,6 +195,11 @@ h3 { font-size: clamp(1.15rem, 1.7vw, 1.65rem); font-weight: 600; }
   margin-top: 12px;
 }
 
+.tf-correct { background: #2f8f4a !important; color: #fff !important; }
+.tf-incorrect { background: #b02a37 !important; color: #fff !important; }
+
+.quiz-item-feedback { margin-top: 8px; }
+
 .action-btn,
 .soft-btn {
   border: 1px solid transparent;
