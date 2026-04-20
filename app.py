@@ -281,8 +281,6 @@ def quiz_page(quiz_id: int) -> str:
         quiz_id=quiz_id,
         has_prev=quiz_id > 1,
         next_id=quiz_id + 1,
-        is_last=quiz_id == len(QUIZ),
-        saved_answer=APP_STATE["quiz_answers"].get(str(quiz_id)),
     )
 
 
@@ -291,13 +289,7 @@ def submit_quiz(quiz_id: int) -> Any:
     question = next((q for q in QUIZ if q["id"] == quiz_id), None)
     if question is None:
         return redirect(url_for("quiz_results"))
-    # Support both traditional form submissions and JSON/AJAX submissions.
-    payload: dict[str, Any] = {}
-    if request.is_json:
-        payload = request.get_json(silent=True) or {}
-    else:
-        # read from form and normalize into a dict similar to JSON payload
-        payload = {k: v for k, v in request.form.items()}
+    payload = {k: v for k, v in request.form.items()}
 
     answer: Any
     if question["type"] == "single":
@@ -313,56 +305,6 @@ def submit_quiz(quiz_id: int) -> Any:
         {"quiz_id": quiz_id, "answer": answer},
     )
 
-    # If this is an AJAX/JSON request, respond with immediate feedback about correctness
-    next_url = url_for("quiz_results") if quiz_id >= len(QUIZ) else url_for("quiz_page", quiz_id=quiz_id + 1)
-    if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        # compute correctness for this single question using same logic as score_quiz
-        q = question
-        correct = False
-        best_answer = ""
-        per_item = None
-
-        if q["type"] == "single":
-            correct_index = q["correct"]
-            best_answer = q["choices"][correct_index]
-            correct = str(correct_index) == str(answer)
-        elif q["type"] == "multi_tf":
-            expected = ["true" if s["correct"] else "false" for s in q["statements"]]
-            best_answer = ", ".join(expected)
-            cleaned = ["" if x is None else x for x in (answer or [])]
-            correct = cleaned == expected
-            # build per-statement details
-            per_item = []
-            for idx, stmt in enumerate(q["statements"]):
-                user_val = None
-                try:
-                    user_val = (answer or [])[idx]
-                except Exception:
-                    user_val = None
-                user_val = "" if user_val is None else user_val
-                expected_val = expected[idx]
-                is_correct = user_val == expected_val
-                per_item.append(
-                    {
-                        "index": idx,
-                        "user": user_val,
-                        "expected": expected_val,
-                        "correct": is_correct,
-                        "explanation": stmt.get("explanation", ""),
-                    }
-                )
-        else:
-            expected = [str(s["correct"]) for s in q["scenarios"]]
-            best_answer = ", ".join(expected)
-            cleaned = ["" if x is None else x for x in (answer or [])]
-            correct = cleaned == expected
-
-        resp_payload = {"ok": True, "correct": correct, "best_answer": best_answer, "next": next_url}
-        if per_item is not None:
-            resp_payload["per_item"] = per_item
-        return jsonify(resp_payload)
-
-    # Fallback: regular form submit -> redirect to next page
     if quiz_id >= len(QUIZ):
         return redirect(url_for("quiz_results"))
     return redirect(url_for("quiz_page", quiz_id=quiz_id + 1))
@@ -411,8 +353,20 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
     return score, total, details
 
 
+def first_unanswered_quiz_id() -> int | None:
+    for q in QUIZ:
+        qid = str(q["id"])
+        if qid not in APP_STATE["quiz_answers"]:
+            return q["id"]
+    return None
+
+
 @app.get("/quiz/results")
 def quiz_results() -> str:
+    unanswered = first_unanswered_quiz_id()
+    if unanswered is not None:
+        return redirect(url_for("quiz_page", quiz_id=unanswered))
+
     score, total, details = score_quiz()
     track_event("page_view", {"route": "/quiz/results", "score": score, "total": total})
     return render_template(

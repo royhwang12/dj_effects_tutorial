@@ -8,7 +8,7 @@
       <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
       <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=4) }}">Examples</a>
       <span class="nav-pill active">Quiz</span>
-      <a class="nav-pill" href="{{ url_for('quiz_results') }}">Summary</a>
+      <span class="nav-pill">Summary</span>
     </div>
   </header>
 
@@ -21,7 +21,7 @@
         <div class="quiz-stack">
           {% for choice in question.choices %}
           <label class="quiz-choice">
-            <input type="radio" name="choice" value="{{ loop.index0 }}" {% if saved_answer is not none and saved_answer|string == loop.index0|string %}checked{% endif %} required>
+            <input type="radio" name="choice" value="{{ loop.index0 }}" required>
             <span>{{ choice }}</span>
           </label>
           {% endfor %}
@@ -71,7 +71,7 @@
           <button class="soft-btn" disabled>Back</button>
         {% endif %}
 
-        <button class="action-btn action-blue small-btn" type="submit">{% if is_last %}See Results{% else %}Next Quiz{% endif %}</button>
+        <button class="action-btn action-blue small-btn" type="submit">Submit</button>
       </footer>
     </form>
   </section>

@@ -20,8 +20,16 @@
       {% for item in details %}
       <article class="panel {{ 'panel-green' if item.correct else 'panel-purple' }}">
         <h3>Q{{ item.id }}: {{ item.title }}</h3>
-        <p>Status: <strong>{{ 'Correct' if item.correct else 'Needs Review' }}</strong></p>
-        <p>Best answer: {{ item.best_answer }}</p>
+        <p>Status: <strong>{{ 'Correct' if item.correct else 'Incorrect' }}</strong></p>
+        <p>
+          Your answer:
+          {% if item.user_answer is sequence and item.user_answer is not string %}
+            {{ item.user_answer|join(', ') }}
+          {% else %}
+            {{ item.user_answer }}
+          {% endif %}
+        </p>
+        <p>Correct answer: {{ item.best_answer }}</p>
       </article>
       {% endfor %}
     </div>
@@ -30,7 +38,6 @@
       <h2>Session data captured</h2>
       <p>Learning started at: {{ started_at or 'Not started from home screen' }}</p>
       <p>Total tracked events: {{ events|length }}</p>
-      <p class="muted">This satisfies HW10 backend tracking for page interactions and quiz answers.</p>
     </article>
   </section>
 
