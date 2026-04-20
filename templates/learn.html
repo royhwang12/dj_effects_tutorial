@@ -1,0 +1,114 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="board">
+  <header class="top-nav">
+    <div class="brand">FX Trainer</div>
+    <div class="nav-pills-wrap">
+      <a class="nav-pill {% if lesson.tab == 'home' %}active{% endif %}" href="{{ url_for('learn_page', lesson_id=1) }}">Home</a>
+      <a class="nav-pill {% if lesson.tab == 'effects' %}active{% endif %}" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
+      <a class="nav-pill {% if lesson.tab == 'examples' %}active{% endif %}" href="{{ url_for('learn_page', lesson_id=4) }}">Examples</a>
+      <a class="nav-pill" href="{{ url_for('quiz_page', quiz_id=1) }}">Quiz</a>
+      <a class="nav-pill {% if lesson.tab == 'summary' %}active{% endif %}" href="{{ url_for('quiz_results') }}">Summary</a>
+    </div>
+  </header>
+
+  {% if lesson.id <= 2 %}
+  <section>
+    <h1>{{ lesson.title }}</h1>
+    <p class="lead">{{ lesson.subtitle }}</p>
+    {% if lesson.description %}<p class="lead muted">{{ lesson.description }}</p>{% endif %}
+
+    {% if lesson.id == 1 %}
+    <div class="hero-grid">
+      <div class="panel panel-blue">
+        <h2>{{ lesson.left_card.title }}</h2>
+        <ol>
+          {% for line in lesson.left_card.lines %}<li>{{ line }}</li>{% endfor %}
+        </ol>
+      </div>
+      <div class="panel panel-light">
+        <h2>Quick actions</h2>
+        {% for action in lesson.right_actions %}
+        <a href="{{ url_for('learn_page', lesson_id=action.target) }}"
+           class="action-btn action-{{ action.color }} lesson-action"
+           data-label="{{ action.label }}">{{ action.label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="effects-grid">
+      {% for effect in lesson.effects %}
+      <article class="panel panel-effect panel-{{ effect.accent }}">
+        <h2>{{ effect.name }}</h2>
+        <p>{{ effect.summary }}</p>
+        <a href="{{ url_for('learn_page', lesson_id=effect.target) }}"
+           class="action-btn action-{{ effect.accent }} lesson-action"
+           data-label="open-{{ effect.name|lower }}">Open</a>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% else %}
+  <section>
+    <h1>{{ lesson.title }}</h1>
+    <p class="lead">{{ lesson.subtitle }}</p>
+
+    <div class="lesson-grid">
+      <article class="panel panel-{{ lesson.board.active|lower|replace('-', '')|replace('%','')|replace(' ','') if lesson.id == 3 else ('purple' if lesson.id == 4 else 'green') }}">
+        <h2>What it does</h2>
+        <p>{{ lesson.description }}</p>
+        <h3>Best for</h3>
+        <ul>
+          {% for item in lesson.best_for %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+        <p class="tip">{{ lesson.tip }}</p>
+      </article>
+
+      <article class="panel panel-dark board-panel">
+        <h3>{{ lesson.board.title }}</h3>
+        <div class="pill-row">
+          {% for pill in lesson.board.pills %}
+            <span class="toggle-pill {% if pill == lesson.board.active %}active{% endif %}">{{ pill }}</span>
+          {% endfor %}
+        </div>
+        <div class="bars">
+          {% for i in range(12) %}
+            <span style="height: {{ 20 + ((i + lesson.id) % 6) * 10 }}%"></span>
+          {% endfor %}
+        </div>
+      </article>
+    </div>
+
+    <article class="panel panel-dark viz-panel">
+      <h3>{{ lesson.viz_title }}</h3>
+      <div class="viz-bars">
+        {% for i in range(10) %}
+          <span style="height: {{ 18 + ((i + lesson.id * 2) % 7) * 9 }}%"></span>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+  {% endif %}
+
+  <footer class="page-controls mt-auto">
+    {% if has_prev %}
+      <a class="soft-btn" href="{{ url_for('learn_page', lesson_id=prev_id) }}">Back</a>
+    {% else %}
+      <button class="soft-btn" disabled>Back</button>
+    {% endif %}
+
+    {% if lesson.next_target == 'quiz' %}
+      <a class="action-btn action-blue small-btn" href="{{ url_for('quiz_page', quiz_id=1) }}">{{ lesson.next_label }}</a>
+    {% elif lesson.next_label %}
+      <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=lesson.next_target) }}">{{ lesson.next_label }}</a>
+    {% else %}
+      <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=next_id) }}">Next</a>
+    {% endif %}
+  </footer>
+</div>
+
+<script>
+  window.pageMeta = { route: '/learn/{{ lesson_id }}', lessonId: {{ lesson_id }} };
+</script>
+{% endblock %}

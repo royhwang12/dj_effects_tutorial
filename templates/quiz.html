@@ -1,0 +1,83 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="board">
+  <header class="top-nav">
+    <div class="brand">FX Trainer</div>
+    <div class="nav-pills-wrap">
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=1) }}">Home</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=4) }}">Examples</a>
+      <span class="nav-pill active">Quiz</span>
+      <a class="nav-pill" href="{{ url_for('quiz_results') }}">Summary</a>
+    </div>
+  </header>
+
+  <section>
+    <h1>{{ question.title }}</h1>
+    <p class="lead">{{ question.instruction }}</p>
+
+    <form method="post" class="quiz-form" data-quiz-id="{{ quiz_id }}">
+      {% if question.type == 'single' %}
+        <div class="quiz-stack">
+          {% for choice in question.choices %}
+          <label class="quiz-choice">
+            <input type="radio" name="choice" value="{{ loop.index0 }}" {% if saved_answer is not none and saved_answer|string == loop.index0|string %}checked{% endif %} required>
+            <span>{{ choice }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      {% elif question.type == 'multi_tf' %}
+        <div class="quiz-grid">
+          {% for statement in question.statements %}
+          <article class="panel panel-dark">
+            <h3>{{ statement.prompt }}</h3>
+            <div class="tf-row">
+              <label class="toggle-pill">
+                <input type="radio" name="tf_{{ loop.index0 }}" value="true" required>
+                <span>True</span>
+              </label>
+              <label class="toggle-pill">
+                <input type="radio" name="tf_{{ loop.index0 }}" value="false" required>
+                <span>False</span>
+              </label>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="quiz-stack">
+          {% for scenario in question.scenarios %}
+          {% set scenario_idx = loop.index0 %}
+          <article class="panel panel-light">
+            <h3>Scenario {{ loop.index }}</h3>
+            <p>{{ scenario.name }}</p>
+            <div class="scenario-options">
+              {% for choice in scenario.choices %}
+              <label class="quiz-choice small-choice">
+                <input type="radio" name="scenario_{{ scenario_idx }}" value="{{ loop.index0 }}" required>
+                <span>{{ choice }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <footer class="page-controls mt-4">
+        {% if has_prev %}
+          <a class="soft-btn" href="{{ url_for('quiz_page', quiz_id=quiz_id-1) }}">Back</a>
+        {% else %}
+          <button class="soft-btn" disabled>Back</button>
+        {% endif %}
+
+        <button class="action-btn action-blue small-btn" type="submit">{% if is_last %}See Results{% else %}Next Quiz{% endif %}</button>
+      </footer>
+    </form>
+  </section>
+</div>
+
+<script>
+  window.pageMeta = { route: '/quiz/{{ quiz_id }}', quizId: {{ quiz_id }} };
+</script>
+{% endblock %}

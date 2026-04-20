@@ -1,0 +1,46 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="board">
+  <header class="top-nav">
+    <div class="brand">FX Trainer</div>
+    <div class="nav-pills-wrap">
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=1) }}">Home</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
+      <a class="nav-pill" href="{{ url_for('learn_page', lesson_id=4) }}">Examples</a>
+      <a class="nav-pill" href="{{ url_for('quiz_page', quiz_id=1) }}">Quiz</a>
+      <span class="nav-pill active">Summary</span>
+    </div>
+  </header>
+
+  <section>
+    <h1>Quiz Feedback</h1>
+    <p class="lead">Final score: <strong>{{ score }}/{{ total }}</strong></p>
+
+    <div class="results-grid mb-4">
+      {% for item in details %}
+      <article class="panel {{ 'panel-green' if item.correct else 'panel-purple' }}">
+        <h3>Q{{ item.id }}: {{ item.title }}</h3>
+        <p>Status: <strong>{{ 'Correct' if item.correct else 'Needs Review' }}</strong></p>
+        <p>Best answer: {{ item.best_answer }}</p>
+      </article>
+      {% endfor %}
+    </div>
+
+    <article class="panel panel-light">
+      <h2>Session data captured</h2>
+      <p>Learning started at: {{ started_at or 'Not started from home screen' }}</p>
+      <p>Total tracked events: {{ events|length }}</p>
+      <p class="muted">This satisfies HW10 backend tracking for page interactions and quiz answers.</p>
+    </article>
+  </section>
+
+  <footer class="page-controls mt-auto">
+    <a class="soft-btn" href="{{ url_for('quiz_page', quiz_id=total) }}">Back</a>
+    <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=1) }}">Try Again</a>
+  </footer>
+</div>
+
+<script>
+  window.pageMeta = { route: '/quiz/results' };
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="board">
+  <header class="top-nav">
+    <div class="brand">FX Trainer</div>
+    <div class="nav-pills-wrap">
+      <span class="nav-pill active">Home</span>
+      <span class="nav-pill">Effects</span>
+      <span class="nav-pill">Examples</span>
+      <span class="nav-pill">Quiz</span>
+      <span class="nav-pill">Summary</span>
+    </div>
+  </header>
+
+  <section class="hero-grid">
+    <div>
+      <h1>Learn DJ Transition Effects</h1>
+      <p class="lead">Choose a guided lesson path or jump into practice. This app teaches the core purpose of each effect through examples and quick quizzes.</p>
+
+      <div class="panel panel-blue">
+        <h2>Recommended path</h2>
+        <ol>
+          <li>Learn Filter</li>
+          <li>Learn Echo</li>
+          <li>Learn Reverb</li>
+          <li>Compare situations</li>
+          <li>Get feedback</li>
+        </ol>
+      </div>
+    </div>
+
+    <aside class="panel panel-light">
+      <h2>Quick actions</h2>
+      <button class="action-btn action-blue start-btn">Start Lesson</button>
+      <a class="action-btn action-purple" href="{{ url_for('learn_page', lesson_id=2) }}">Browse Effects</a>
+      <a class="action-btn action-orange" href="{{ url_for('quiz_page', quiz_id=1) }}">Quick Practice</a>
+    </aside>
+  </section>
+
+  <footer class="page-controls mt-auto">
+    <button class="soft-btn" disabled>Back</button>
+    <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=1) }}">Next</a>
+  </footer>
+</div>
+{% endblock %}
