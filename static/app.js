@@ -142,6 +142,11 @@
       track("quiz_submit_click", { quiz_id: quizId });
     });
 
+    // live slider value display
+    $(document).on('input', '#quiz-slider', function () {
+      $('#slider-value').text(this.value);
+    });
+
     function updateRadioStyles(input) {
       const name = input.name;
       const $group = $('input[type="radio"][name="' + name + '"]');

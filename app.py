@@ -220,6 +220,19 @@ QUIZ: list[dict[str, Any]] = [
         ],
         "correct": 1,
     },
+    {
+        "id": 5,
+        "title": "Quiz: Set the Filter Level",
+        "instruction": "Choose the best filter cutoff (0-100) to smoothly remove lows during a transition.",
+        "type": "slider",
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "default": 25,
+        # correct numerical value and tolerance
+        "correct": 25,
+        "tolerance": 5,
+    },
 ]
 
 APP_STATE: dict[str, Any] = {
@@ -311,6 +324,13 @@ def submit_quiz(quiz_id: int) -> Any:
         answer = payload.get("choice")
     elif question["type"] == "multi_tf":
         answer = [payload.get(f"tf_{idx}") for idx, _ in enumerate(question["statements"]) ]
+    elif question["type"] == "slider":
+        # store numeric slider value (from form or JSON)
+        val = payload.get("slider") or payload.get("value")
+        try:
+            answer = int(val)
+        except Exception:
+            answer = None
     else:
         answer = [payload.get(f"scenario_{idx}") for idx, _ in enumerate(question["scenarios"]) ]
 
@@ -346,6 +366,19 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
             best_answer = ", ".join(expected)
             cleaned = ["" if x is None else x for x in (user_answer or [])]
             correct = cleaned == expected
+        elif q["type"] == "slider":
+            # compare numeric slider value within tolerance
+            try:
+                val = int(user_answer) if user_answer is not None else None
+            except Exception:
+                val = None
+            correct_val = q.get("correct")
+            tol = q.get("tolerance", 0)
+            best_answer = str(correct_val)
+            if val is None:
+                correct = False
+            else:
+                correct = abs(val - int(correct_val)) <= int(tol)
         else:
             expected = [str(s["correct"]) for s in q["scenarios"]]
             best_answer = ", ".join(expected)

@@ -62,6 +62,15 @@
           </article>
           {% endfor %}
         </div>
+      {% elif question.type == 'slider' %}
+        <div class="panel panel-light">
+          <h3>Adjust the slider</h3>
+          <p class="muted">{{ question.instruction }}</p>
+          <div class="slider-row">
+            <input type="range" name="slider" min="{{ question.min }}" max="{{ question.max }}" step="{{ question.step }}" value="{{ question.default }}" id="quiz-slider">
+            <output id="slider-value">{{ question.default }}</output>
+          </div>
+        </div>
       {% endif %}
 
       <footer class="page-controls mt-4">
