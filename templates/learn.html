@@ -88,6 +88,21 @@
         {% endfor %}
       </div>
     </article>
+
+    {% if lesson.sample %}
+    <article class="panel sample-panel">
+      <h3>Effect Audio Sample</h3>
+      <p class="muted">{{ lesson.sample.hint }}</p>
+      <button
+        type="button"
+        class="action-btn action-blue sample-play-btn"
+        data-effect="{{ lesson.sample.effect }}"
+        data-label="{{ lesson.sample.label }}"
+      >
+        {{ lesson.sample.label }}
+      </button>
+    </article>
+    {% endif %}
   </section>
   {% endif %}
 

@@ -164,6 +164,23 @@ h3 { font-size: clamp(1.15rem, 1.7vw, 1.65rem); font-weight: 600; }
 
 .viz-panel { margin-top: 16px; }
 
+.sample-panel {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.sample-panel h3,
+.sample-panel p {
+  margin: 0;
+}
+
+.sample-play-btn {
+  min-width: 220px;
+}
+
 .quiz-form { margin-top: 8px; }
 .quiz-stack { display: grid; gap: 12px; }
 .quiz-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
