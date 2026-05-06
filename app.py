@@ -22,8 +22,9 @@ LESSONS: list[dict[str, Any]] = [
                 "1. Learn Filter",
                 "2. Learn Echo",
                 "3. Learn Reverb",
-                "4. Compare situations",
-                "5. Take the quiz",
+                "4. Learn Phaser",
+                "5. Compare situations",
+                "6. Take the quiz",
             ],
         },
         "right_actions": [
@@ -57,10 +58,10 @@ LESSONS: list[dict[str, Any]] = [
                 "target": 5,
             },
             {
-                "name": "Noise FX",
-                "summary": "Builds tension before a drop.",
+                "name": "Phaser",
+                "summary": "Adds a swirling resonant sweep.",
                 "accent": "orange",
-                "target": 4,
+                "target": 6,
             },
         ],
     },
@@ -139,6 +140,32 @@ LESSONS: list[dict[str, Any]] = [
             "hint": "Hear a wide ambient tail on a short tone.",
         },
         "viz_title": "Dry signal vs. Reverb on",
+        "next_label": "Learn Phaser",
+        "next_target": 6,
+    },
+    {
+        "id": 6,
+        "tab": "examples",
+        "title": "Effect Lesson: Phaser",
+        "subtitle": "Phaser sweeps moving notches through the sound for a swirling texture.",
+        "description": "Use it for aggressive movement and dramatic tension in transitions.",
+        "best_for": [
+            "Sweeping builds before drops",
+            "Adding movement to static sections",
+            "Short dramatic transitions",
+        ],
+        "tip": "Tip: push the knob higher for a deeper swirl, then pull it back before the drop.",
+        "board": {
+            "title": "Phaser Unit",
+            "pills": ["RATE", "DEPTH", "RESONANCE"],
+            "active": "DEPTH",
+        },
+        "sample": {
+            "effect": "phaser",
+            "label": "Play Phaser Sample",
+            "hint": "Hear a deep swirling phase sweep on a house loop.",
+        },
+        "viz_title": "Phaser sweep - moving notches shift across the spectrum",
         "next_label": "See Quiz",
         "next_target": "quiz",
     },
@@ -254,7 +281,7 @@ def start_learning() -> Any:
     APP_STATE["started_at"] = now_iso()
     APP_STATE["quiz_answers"] = {}
     track_event("start_learning", {"route": "/"})
-    return jsonify({"ok": True, "next": url_for("learn_page", lesson_id=1)})
+    return jsonify({"ok": True, "next": url_for("learn_page", lesson_id=2)})
 
 
 @app.get("/learn/<int:lesson_id>")
@@ -410,4 +437,4 @@ def api_state() -> Any:
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

@@ -15,6 +15,36 @@
   <section>
     <h1>{{ question.title }}</h1>
     <p class="lead">{{ question.instruction }}</p>
+    <article class="panel panel-light quiz-coach">
+      <h3>Performance Coach</h3>
+      <p class="muted">Pick your answer, then rate confidence before you submit.</p>
+      <label class="confidence-wrap" for="confidence-level">
+        Confidence: <span class="confidence-value">50%</span>
+        <input id="confidence-level" type="range" min="0" max="100" value="50" class="confidence-slider">
+      </label>
+    </article>
+    <article class="panel music-lab">
+      <h3>Quiz Music Lab</h3>
+      <p class="muted">Use pads and a mini step sequencer while you think through the answer.</p>
+      <div class="music-pads">
+        <button type="button" class="music-pad" data-note="261.63">C</button>
+        <button type="button" class="music-pad" data-note="329.63">E</button>
+        <button type="button" class="music-pad" data-note="392.00">G</button>
+        <button type="button" class="music-pad" data-note="523.25">C+</button>
+      </div>
+      <label class="tempo-wrap" for="tempo-slider">
+        Tempo: <span class="tempo-value">108 BPM</span>
+        <input id="tempo-slider" type="range" min="80" max="140" value="108" class="tempo-slider">
+      </label>
+      <div class="sequencer-grid">
+        {% for i in range(8) %}
+        <button type="button" class="seq-step" data-step="{{ i }}">•</button>
+        {% endfor %}
+      </div>
+      <div class="sequencer-controls">
+        <button type="button" class="action-btn action-purple seq-toggle-btn">Play Loop</button>
+      </div>
+    </article>
 
     <form method="post" class="quiz-form" data-quiz-id="{{ quiz_id }}">
       {% if question.type == 'single' %}
@@ -26,6 +56,7 @@
           </label>
           {% endfor %}
         </div>
+        <p class="muted quiz-hint">Tip: number keys `1-3` select options quickly.</p>
       {% elif question.type == 'multi_tf' %}
         <div class="quiz-grid">
           {% for statement in question.statements %}
@@ -62,6 +93,7 @@
           </article>
           {% endfor %}
         </div>
+        <p class="muted quiz-hint">Technique: pick settings that preserve energy while avoiding harsh tails.</p>
       {% endif %}
 
       <footer class="page-controls mt-4">

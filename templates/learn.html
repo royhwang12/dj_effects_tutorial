@@ -65,44 +65,93 @@
         <p class="tip">{{ lesson.tip }}</p>
       </article>
 
-      <article class="panel panel-dark board-panel">
-        <h3>{{ lesson.board.title }}</h3>
-        <div class="pill-row">
-          {% for pill in lesson.board.pills %}
-            <span class="toggle-pill {% if pill == lesson.board.active %}active{% endif %}">{{ pill }}</span>
-          {% endfor %}
+      <article class="panel dj-rig-panel">
+        <div class="dj-rig-head">
+          <h3>DJ Board</h3>
+          <p class="muted">
+            House loop is loaded. Only the
+            {% if lesson.sample.effect == 'filter' %}Filter knob{% else %}FX knob{% endif %}
+            is interactive for this lesson.
+          </p>
         </div>
-        <div class="bars">
-          {% for i in range(12) %}
-            <span style="height: {{ 20 + ((i + lesson.id) % 6) * 10 }}%"></span>
-          {% endfor %}
+
+        <div class="dj-rig dj-controller" data-effect-type="{{ lesson.sample.effect if lesson.sample else 'filter' }}">
+          <div class="source-panel">
+            <label>
+              Audio source
+              <select class="audio-source-select">
+                <option value="house" selected>Default House Loop</option>
+                <option value="custom">Custom MP3</option>
+              </select>
+            </label>
+            <label>
+              Upload MP3
+              <input type="file" class="custom-audio-input" accept=".mp3,audio/mpeg,audio/mp3,audio/*">
+            </label>
+          </div>
+          <div class="deck-top-row">
+            <button type="button" class="action-btn action-blue transport-toggle" data-label-on="Stop Deck" data-label-off="Play House Loop">Play House Loop</button>
+            <div class="deck-status-wrap">
+              <span class="deck-status-light" aria-hidden="true"></span>
+              <span class="deck-status-text">Deck stopped</span>
+            </div>
+          </div>
+
+          <div class="deck-visual-row">
+            <div class="deck-waveform" aria-hidden="true">
+              {% for i in range(32) %}
+                <span style="height: {{ 20 + ((i * lesson.id) % 9) * 8 }}%"></span>
+              {% endfor %}
+              <span class="wave-playhead"></span>
+            </div>
+          </div>
+
+          <div class="controller-body">
+            <section class="deck-surface">
+              <div class="jog-wheel"><span></span></div>
+              <div class="pad-row">
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </section>
+
+            <section class="mixer-surface">
+              <div class="mixer-top">
+                <div class="mixer-knob decorative"><span></span><small>HI</small></div>
+                <div class="mixer-knob decorative"><span></span><small>MID</small></div>
+                <div class="mixer-knob decorative"><span></span><small>LOW</small></div>
+              </div>
+
+              <div class="mixer-live-control">
+                <p class="live-label">
+                  {% if lesson.sample.effect == 'filter' %}FILTER{% elif lesson.sample.effect == 'reverb' %}REVERB FX{% elif lesson.sample.effect == 'phaser' %}PHASER FX{% else %}ECHO FX{% endif %}
+                </p>
+                <button type="button" class="effect-active-btn is-on">Effect Active</button>
+                <div class="knob-shell live-knob-shell">
+                  <input type="range" min="0" max="100" value="42" class="knob-range effect-primary-knob" data-control="primary_effect">
+                  <div class="knob-face" aria-hidden="true">
+                    <span class="knob-indicator"></span>
+                  </div>
+                </div>
+                <p class="knob-value"><span class="filter-value">42%</span></p>
+              </div>
+
+              <div class="mixer-faders">
+                <div class="fader decorative"><span></span></div>
+                <div class="fader decorative"><span></span></div>
+                <div class="crossfader decorative"><span></span></div>
+              </div>
+            </section>
+
+            <section class="deck-surface">
+              <div class="jog-wheel"><span></span></div>
+              <div class="pad-row">
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </section>
+          </div>
         </div>
       </article>
     </div>
-
-    <article class="panel panel-dark viz-panel">
-      <h3>{{ lesson.viz_title }}</h3>
-      <div class="viz-bars">
-        {% for i in range(10) %}
-          <span style="height: {{ 18 + ((i + lesson.id * 2) % 7) * 9 }}%"></span>
-        {% endfor %}
-      </div>
-    </article>
-
-    {% if lesson.sample %}
-    <article class="panel sample-panel">
-      <h3>Effect Audio Sample</h3>
-      <p class="muted">{{ lesson.sample.hint }}</p>
-      <button
-        type="button"
-        class="action-btn action-blue sample-play-btn"
-        data-effect="{{ lesson.sample.effect }}"
-        data-label="{{ lesson.sample.label }}"
-      >
-        {{ lesson.sample.label }}
-      </button>
-    </article>
-    {% endif %}
   </section>
   {% endif %}
 

@@ -31,7 +31,6 @@
 
     <aside class="panel panel-light">
       <h2>Quick actions</h2>
-      <button class="action-btn action-blue start-btn">Start Lesson</button>
       <a class="action-btn action-purple" href="{{ url_for('learn_page', lesson_id=2) }}">Browse Effects</a>
       <a class="action-btn action-orange" href="{{ url_for('quiz_page', quiz_id=1) }}">Quick Practice</a>
     </aside>
@@ -39,7 +38,7 @@
 
   <footer class="page-controls mt-auto">
     <button class="soft-btn" disabled>Back</button>
-    <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=1) }}">Start</a>
+    <a class="action-btn action-blue small-btn" href="{{ url_for('learn_page', lesson_id=2) }}">Effects</a>
   </footer>
 </div>
 {% endblock %}
