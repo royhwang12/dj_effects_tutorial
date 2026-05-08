@@ -701,29 +701,17 @@
     $(document).on("click", ".effect-active-btn", function () {
       const $btn = $(this);
       const $deck = $btn.closest(".dj-rig");
-      const state = deckStates.get($deck.get(0));
-      const enable = !$btn.hasClass("is-on");
-      $btn.toggleClass("is-on", enable).text(enable ? "Effect Active" : "Effect Bypass");
-
-      if (state) {
-        state.effectEnabled = enable;
-        const value = Number($deck.find(".effect-primary-knob").val());
-        if (state.effectType === "filter") {
-          if (enable) {
-            state.filterNode.frequency.setTargetAtTime(cutoffFromKnob(value), state.context.currentTime, 0.04);
-            state.filterNode.Q.setTargetAtTime(0.8 + (value / 100) * 10, state.context.currentTime, 0.05);
-          } else {
-            state.filterNode.frequency.setTargetAtTime(12000, state.context.currentTime, 0.04);
-            state.filterNode.Q.setTargetAtTime(0.8, state.context.currentTime, 0.05);
-          }
-        } else if (!enable) {
-          state.wetGain.gain.setTargetAtTime(0, state.context.currentTime, 0.05);
-        } else {
-          $deck.find(".effect-primary-knob").trigger("input");
-        }
+      const isOn = $btn.hasClass("is-on");
+      if (isOn) {
+        $btn.removeClass("is-on").text("Effect Bypass");
+        const $knob = $deck.find(".effect-primary-knob");
+        $knob.val(0).trigger("input").trigger("change");
+        track("deck_effect_toggle", { enabled: false, value: 0, route: window.pageMeta?.route || "unknown" });
+        return;
       }
 
-      track("deck_effect_toggle", { enabled: enable, route: window.pageMeta?.route || "unknown" });
+      $btn.addClass("is-on").text("Effect Active");
+      track("deck_effect_toggle", { enabled: true, route: window.pageMeta?.route || "unknown" });
     });
 
     $(document).on("input", ".effect-primary-knob", function () {
