@@ -47,6 +47,14 @@
     </article>
 
     <form method="post" class="quiz-form" data-quiz-id="{{ quiz_id }}">
+      {% if question.diagram and question.type != 'interactive' %}
+      <div class="panel panel-light quiz-diagram">
+        <h4 class="muted">Diagram</h4>
+        <div class="diagram-wrap">
+          <img src="{{ question.diagram }}" alt="DJ board diagram" />
+        </div>
+      </div>
+      {% endif %}
       {% if question.type == 'single' %}
         <div class="quiz-stack">
           {% for choice in question.choices %}
@@ -75,6 +83,15 @@
           </article>
           {% endfor %}
         </div>
+      {% elif question.type == 'slider' %}
+        <div class="panel panel-light">
+          <h3>{{ question.title }}</h3>
+          <p class="muted">{{ question.instruction }}</p>
+          <div class="slider-row">
+            <input type="range" name="slider" id="quiz-slider" min="{{ question.min }}" max="{{ question.max }}" step="{{ question.step }}" value="{{ question.default }}">
+            <output id="quiz-slider-value">{{ question.default }}</output>
+          </div>
+        </div>
       {% else %}
         <div class="quiz-stack">
           {% for scenario in question.scenarios %}
@@ -96,6 +113,107 @@
         <p class="muted quiz-hint">Technique: pick settings that preserve energy while avoiding harsh tails.</p>
       {% endif %}
 
+      {% if question.type == 'interactive' %}
+      <div class="panel panel-light interactive-board">
+        <h4>Interactive DJ Board</h4>
+        <div class="dj-rig dj-controller quiz-dj" data-effect-type="filter">
+          <div class="source-panel">
+            <label>
+              Audio source
+              <select class="audio-source-select">
+                <option value="house" selected>Default House Loop</option>
+                <option value="custom">Custom MP3</option>
+              </select>
+            </label>
+            <label>
+              Upload MP3
+              <input type="file" class="custom-audio-input" accept=".mp3,audio/mpeg,audio/mp3,audio/*">
+            </label>
+          </div>
+
+          <div class="deck-top-row">
+            <button type="button" class="action-btn action-blue transport-toggle">Play House Loop</button>
+            <div class="deck-status-wrap">
+              <span class="deck-status-light" aria-hidden="true"></span>
+              <span class="deck-status-text">Deck stopped</span>
+            </div>
+          </div>
+
+          <div class="deck-visual-row">
+            <div class="deck-waveform" aria-hidden="true">
+              {% for i in range(16) %}
+                <span style="height: {{ 20 + (i % 7) * 6 }}%"></span>
+              {% endfor %}
+              <span class="wave-playhead"></span>
+            </div>
+          </div>
+
+          <div class="controller-body">
+            <section class="deck-surface">
+              <div class="jog-wheel"><span></span></div>
+              <div class="pad-row"><span></span><span></span><span></span><span></span></div>
+            </section>
+
+            <section class="mixer-surface">
+              <div class="mixer-top">
+                <div class="mixer-knob decorative"><span></span><small>HI</small></div>
+                <div class="mixer-knob decorative"><span></span><small>MID</small></div>
+                <div class="mixer-knob decorative"><span></span><small>LOW</small></div>
+              </div>
+
+              <div class="mixer-live-control">
+                <p class="live-label">FILTER</p>
+                <button type="button" class="effect-active-btn is-on quiz-echo-toggle">Effect Active</button>
+                <div class="knob-shell live-knob-shell">
+                  <!-- visible knob for the quiz; keep class names so existing handlers apply -->
+                  <input type="range" min="0" max="100" value="{{ question.expected.filter_a if question.expected and question.expected.filter_a is defined else 25 }}" class="knob-range effect-primary-knob quiz-effect-knob" id="quiz-filter-range">
+                  <div class="knob-face" aria-hidden="true"><span class="knob-indicator"></span></div>
+                </div>
+                <p class="knob-value"><span class="filter-value">{{ question.expected.filter_a if question.expected and question.expected.filter_a is defined else 25 }}%</span></p>
+              </div>
+
+              <div class="mixer-faders">
+                <div class="fader decorative">
+                  {% if 'gain_a' in question.controls %}
+                    <input type="range" min="0" max="100" value="{{ question.expected.gain_a if question.expected and question.expected.gain_a is defined else 50 }}" id="quiz-gain-a-range" class="gain-range">
+                  {% else %}
+                    <span></span>
+                  {% endif %}
+                </div>
+                <div class="fader decorative">
+                  {% if 'gain_b' in question.controls %}
+                    <input type="range" min="0" max="100" value="{{ question.expected.gain_b if question.expected and question.expected.gain_b is defined else 50 }}" id="quiz-gain-b-range" class="gain-range">
+                  {% else %}
+                    <span></span>
+                  {% endif %}
+                </div>
+                <div class="crossfader decorative">
+                  {% if 'crossfader' in question.controls %}
+                    <input type="range" min="0" max="100" value="{{ question.expected.crossfader if question.expected and question.expected.crossfader is defined else 50 }}" id="quiz-crossfader-range" class="crossfader-range">
+                  {% else %}
+                    <span></span>
+                  {% endif %}
+                </div>
+              </div>
+            </section>
+
+            <section class="deck-surface">
+              <div class="jog-wheel"><span></span></div>
+              <div class="pad-row"><span></span><span></span><span></span><span></span></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- hidden inputs to be submitted -->
+        <input type="hidden" name="crossfader" id="crossfader" value="{{ question.expected.crossfader if question.expected and question.expected.crossfader is defined else 50 }}">
+        <input type="hidden" name="filter_a" id="filter_a" value="{{ question.expected.filter_a if question.expected and question.expected.filter_a is defined else 25 }}">
+        <input type="hidden" name="filter_b" id="filter_b" value="{{ question.expected.filter_b if question.expected and question.expected.filter_b is defined else 0 }}">
+        <input type="hidden" name="echo" id="echo" value="{{ 'true' if (question.expected and question.expected.echo) else 'false' }}">
+        <input type="hidden" name="gain_a" id="gain_a" value="{{ question.expected.gain_a if question.expected and question.expected.gain_a is defined else 50 }}">
+        <input type="hidden" name="gain_b" id="gain_b" value="{{ question.expected.gain_b if question.expected and question.expected.gain_b is defined else 50 }}">
+      </div>
+      {% endif %}
+
       <footer class="page-controls mt-4">
         {% if has_prev %}
           <a class="soft-btn" href="{{ url_for('quiz_page', quiz_id=quiz_id-1) }}">Back</a>
@@ -104,6 +222,9 @@
         {% endif %}
 
         <button class="action-btn action-blue small-btn" type="submit">Submit</button>
+        {% if quiz_id == total_quizzes %}
+          <a class="action-btn action-green small-btn ms-2" href="{{ url_for('quiz_results') }}">Continue to Summary</a>
+        {% endif %}
       </footer>
     </form>
   </section>

@@ -378,9 +378,49 @@
       track("lesson_action_click", { label: label, route: window.pageMeta?.route || "unknown" });
     });
 
-    $(document).on("submit", ".quiz-form", function () {
-      const quizId = $(this).data("quiz-id");
+    $(document).on("submit", ".quiz-form", function (e) {
+      e.preventDefault();
+      const $form = $(this);
+      const quizId = $form.data("quiz-id");
       track("quiz_submit_click", { quiz_id: quizId });
+
+      // serialize form fields into an object and include slider if present
+      const data = {};
+      $form.serializeArray().forEach(function (item) {
+        data[item.name] = item.value;
+      });
+      const slider = $form.find('#quiz-slider').val();
+      if (slider !== undefined) data['slider'] = slider;
+
+      $.ajax({
+        url: '/quiz/' + quizId,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+      }).done(function (resp) {
+        // show inline feedback
+        $form.find('.quiz-feedback').remove();
+        const $fb = $('<div class="quiz-feedback mt-3" />');
+        if (resp && resp.ok) {
+          if (resp.correct) {
+            $fb.addClass('alert alert-success').text('Correct!');
+          } else {
+            $fb.addClass('alert alert-danger').text('Incorrect. Correct: ' + (resp.best_answer || ''));
+            if (resp.hint) {
+              const $hint = $('<div class="quiz-hint mt-2 small text-muted" />').text('Hint: ' + resp.hint);
+              $fb.append($hint);
+            }
+          }
+          const nextHref = resp.next_url || resp.next;
+          if (nextHref) $fb.append(' <a class="btn btn-sm btn-primary ms-2" href="' + nextHref + '">Continue</a>');
+        } else {
+          $fb.addClass('alert alert-warning').text('Could not submit the answer.');
+        }
+        $form.prepend($fb);
+      }).fail(function () {
+        // fallback to full form submit
+        $form.off('submit').submit();
+      });
     });
 
     function updateRadioStyles(input) {
@@ -547,6 +587,14 @@
       });
     });
 
+    // live quiz slider (used for slider-type quiz questions)
+    $(document).on('input', '#quiz-slider', function () {
+      $('#quiz-slider-value').text(this.value);
+    });
+    $(document).on('change', '#quiz-slider', function () {
+      track('quiz_slider_set', { quiz_id: window.pageMeta?.quizId || null, value: Number(this.value) });
+    });
+
     $(document).on("keydown", function (event) {
       const key = event.key;
       if (!window.pageMeta || !window.pageMeta.quizId) return;
@@ -612,5 +660,206 @@
       $(this).text("Stop Loop").addClass("is-live");
       track("quiz_sequencer_start", { quiz_id: window.pageMeta?.quizId || null, bpm: bpm });
     });
+    // --- Interactive SVG controls for quiz diagram ---
+    function svgPoint(svg, x, y) {
+      var pt = svg.createSVGPoint();
+      pt.x = x; pt.y = y;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+    // Initialize overlay handlers after a short delay (ensure SVG present)
+    setTimeout(function(){
+      var overlay = document.querySelector('.diagram-overlay');
+      if(!overlay) return;
+      var svg = overlay;
+      var crossHandle = svg.getElementById('cross-handle');
+      var crossTrack = svg.getElementById('cross-track');
+      var filterA = svg.getElementById('filter-a-handle');
+      var filterB = svg.getElementById('filter-b-handle');
+      var echoToggle = svg.getElementById('echo-toggle');
+      var gainA = svg.getElementById('gain-a-handle');
+      var gainB = svg.getElementById('gain-b-handle');
+
+      if(!crossHandle || !crossTrack) return;
+
+      // store original reference positions (in SVG user coordinates)
+      var orig = {};
+
+      function recalcOrig() {
+        var tbox = crossTrack.getBBox();
+        var hbox = crossHandle.getBBox();
+        orig.crossTrack = tbox;
+        orig.crossHandleCenterX = hbox.x + hbox.width/2;
+
+        var aCircle = filterA && filterA.querySelector('circle');
+        var bCircle = filterB && filterB.querySelector('circle');
+        if(aCircle){ var ab = aCircle.getBBox(); orig.filterACenterY = ab.y + ab.height/2; }
+        if(bCircle){ var bb = bCircle.getBBox(); orig.filterBCenterY = bb.y + bb.height/2; }
+
+        var gaRect = gainA && gainA.querySelector('rect');
+        var gbRect = gainB && gainB.querySelector('rect');
+        if(gaRect){ var gab = gaRect.getBBox(); orig.gainA = gab; }
+        if(gbRect){ var gbb = gbRect.getBBox(); orig.gainB = gbb; }
+      }
+
+      recalcOrig();
+
+      var dragging = null;
+
+      function screenToRatioX(px){
+        var bbox = orig.crossTrack;
+        return clamp((px - bbox.x)/bbox.width, 0, 1);
+      }
+
+      function setCrossByRatio(ratio){
+        var bbox = orig.crossTrack;
+        var targetCenterX = bbox.x + ratio * bbox.width;
+        var dx = targetCenterX - orig.crossHandleCenterX;
+        crossHandle.setAttribute('transform','translate(' + dx + ',0)');
+        var val = Math.round(ratio * 100);
+        var el = document.getElementById('crossfader'); if(el) el.value = val;
+      }
+
+      function setFilterByY(group, origCenterY, inputId, rangePx){
+        var top = origCenterY - rangePx;
+        var bottom = origCenterY + rangePx;
+        var y = clamp(rangePx === 0 ? origCenterY : clamp((y = arguments[1]) , top, bottom), top, bottom);
+      }
+
+      function setFilterAByY(y){
+        if(!filterA) return;
+        var range = 40; // allow +/-40px around original center
+        var top = orig.filterACenterY - range;
+        var bottom = orig.filterACenterY + range;
+        y = clamp(y, top, bottom);
+        var dy = y - orig.filterACenterY;
+        filterA.setAttribute('transform','translate(0,' + dy + ')');
+        var val = Math.round(((bottom - y) / (bottom - top)) * 100);
+        var el = document.getElementById('filter_a'); if(el) el.value = val;
+      }
+
+      function setFilterBByY(y){
+        if(!filterB) return;
+        var range = 40;
+        var top = orig.filterBCenterY - range;
+        var bottom = orig.filterBCenterY + range;
+        y = clamp(y, top, bottom);
+        var dy = y - orig.filterBCenterY;
+        filterB.setAttribute('transform','translate(0,' + dy + ')');
+        var val = Math.round(((bottom - y) / (bottom - top)) * 100);
+        var el = document.getElementById('filter_b'); if(el) el.value = val;
+      }
+
+      function setGainAByY(y){
+        if(!orig.gainA) return;
+        var top = orig.gainA.y;
+        var bottom = orig.gainA.y + orig.gainA.height;
+        y = clamp(y, top, bottom);
+        // visual: move the rect so its top aligns with y
+        var dy = y - orig.gainA.y;
+        gainA.setAttribute('transform','translate(0,' + dy + ')');
+        var val = Math.round(((bottom - y) / (bottom - top)) * 100);
+        var el = document.getElementById('gain_a'); if(el) el.value = val;
+      }
+
+      function setGainBByY(y){
+        if(!orig.gainB) return;
+        var top = orig.gainB.y;
+        var bottom = orig.gainB.y + orig.gainB.height;
+        y = clamp(y, top, bottom);
+        var dy = y - orig.gainB.y;
+        gainB.setAttribute('transform','translate(0,' + dy + ')');
+        var val = Math.round(((bottom - y) / (bottom - top)) * 100);
+        var el = document.getElementById('gain_b'); if(el) el.value = val;
+      }
+
+      svg.addEventListener('pointerdown', function(e){
+        var target = e.target;
+        // accept group children
+        if(target.parentNode && target.parentNode.id === 'cross-handle') dragging = crossHandle;
+        else if(target.parentNode && target.parentNode.id === 'filter-a-handle') dragging = filterA;
+        else if(target.parentNode && target.parentNode.id === 'filter-b-handle') dragging = filterB;
+        else if(target.parentNode && target.parentNode.id === 'gain-a-handle') dragging = gainA;
+        else if(target.parentNode && target.parentNode.id === 'gain-b-handle') dragging = gainB;
+        else if(target.id === 'cross-handle' || target === crossHandle) dragging = crossHandle;
+        else if(target.id === 'filter-a-handle' || target === filterA) dragging = filterA;
+        else if(target.id === 'filter-b-handle' || target === filterB) dragging = filterB;
+        else if(target.id === 'gain-a-handle' || target === gainA) dragging = gainA;
+        else if(target.id === 'gain-b-handle' || target === gainB) dragging = gainB;
+        else if(target.id === 'echo-toggle' || (target.parentNode && target.parentNode.id === 'echo-toggle')) {
+          // toggle echo
+          var echoEl = document.getElementById('echo');
+          var cur = echoEl && echoEl.value === 'true';
+          if(echoEl) echoEl.value = cur ? 'false' : 'true';
+          var txt = svg.querySelector('#echo-toggle text');
+          if(txt) txt.textContent = 'Echo: ' + (cur ? 'OFF' : 'ON');
+        }
+        if(dragging){ svg.setPointerCapture(e.pointerId); }
+      });
+
+      window.addEventListener('pointermove', function(e){
+        if(!dragging) return;
+        var p = svgPoint(svg, e.clientX, e.clientY);
+        if(dragging === crossHandle){
+          var ratio = screenToRatioX(p.x);
+          setCrossByRatio(ratio);
+        } else if(dragging === filterA){
+          setFilterAByY(p.y);
+        } else if(dragging === filterB){
+          setFilterBByY(p.y);
+        } else if(dragging === gainA){
+          setGainAByY(p.y);
+        } else if(dragging === gainB){
+          setGainBByY(p.y);
+        }
+      });
+
+      window.addEventListener('pointerup', function(e){ dragging = null; });
+
+      // Initialize visuals from hidden inputs
+        function initializeFromInputs(){
+          try{ recalcOrig(); }catch(e){ }
+          var cf = document.getElementById('crossfader');
+          if(cf) setCrossByRatio((Number(cf.value)||0)/100);
+          var fa = document.getElementById('filter_a');
+          if(fa){
+            var val = clamp(Number(fa.value)||0,0,100);
+            var range = 40; var top = orig.filterACenterY - range; var bottom = orig.filterACenterY + range;
+            var y = bottom - (val/100)*(bottom-top);
+            setFilterAByY(y);
+          }
+          var fb = document.getElementById('filter_b');
+          if(fb){
+            var valb = clamp(Number(fb.value)||0,0,100);
+            var range = 40; var topb = orig.filterBCenterY - range; var bottomb = orig.filterBCenterY + range;
+            var yb = bottomb - (valb/100)*(bottomb-topb);
+            setFilterBByY(yb);
+          }
+          var ga = document.getElementById('gain_a');
+          if(ga && orig.gainA){ var valga = clamp(Number(ga.value)||50,0,100); var top = orig.gainA.y; var bottom = orig.gainA.y + orig.gainA.height; var y = bottom - (valga/100)*(bottom-top); setGainAByY(y); }
+          var gb = document.getElementById('gain_b');
+          if(gb && orig.gainB){ var valgb = clamp(Number(gb.value)||50,0,100); var top = orig.gainB.y; var bottom = orig.gainB.y + orig.gainB.height; var y = bottom - (valgb/100)*(bottom-top); setGainBByY(y); }
+        }
+
+        // initialize now and on resize (recalculate orig boxes when layout changes)
+        initializeFromInputs();
+        window.addEventListener('resize', function(){ setTimeout(initializeFromInputs, 60); });
+
+        // ---- wire visible quiz controls to hidden inputs ----
+        $(document).on('input', '#quiz-crossfader-range', function(){
+          var v = Number(this.value||0); $('#crossfader').val(v); // keep hidden input in sync
+        });
+        $(document).on('input', '#quiz-filter-range', function(){
+          var v = Number(this.value||0); $('#filter_a').val(v); $('.filter-value').text(v + '%');
+        });
+        $(document).on('input', '#quiz-gain-a-range', function(){ $('#gain_a').val(Number(this.value||0)); });
+        $(document).on('input', '#quiz-gain-b-range', function(){ $('#gain_b').val(Number(this.value||0)); });
+        $(document).on('click', '.quiz-echo-toggle', function(){
+          var el = $('#echo'); var cur = el.val() === 'true'; el.val(cur ? 'false' : 'true'); $(this).toggleClass('is-on', !cur); $(this).text(!cur ? 'Effect Active' : 'Effect Active');
+        });
+
+    }, 100);
   });
 })();

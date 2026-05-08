@@ -28,7 +28,6 @@ LESSONS: list[dict[str, Any]] = [
             ],
         },
         "right_actions": [
-            {"label": "Start Lesson", "target": 2, "color": "blue"},
             {"label": "Browse Effects", "target": 2, "color": "purple"},
             {"label": "Quick Practice", "target": 4, "color": "orange"},
         ],
@@ -183,6 +182,7 @@ QUIZ: list[dict[str, Any]] = [
             "Crossfader first -> filter sweep -> Track B volume -> release filter",
         ],
         "correct": 0,
+        "hint": "Think: engage a high-pass first, bring in the incoming track, move the crossfader, then release the filter.",
     },
     {
         "id": 2,
@@ -211,6 +211,7 @@ QUIZ: list[dict[str, Any]] = [
                 "explanation": "False. Reverb is smooth ambience; echo is distinct repeats.",
             },
         ],
+        "hint": "Remember: Echo = distinct repeats, Reverb = smooth ambience; read each statement carefully.",
     },
     {
         "id": 3,
@@ -234,6 +235,7 @@ QUIZ: list[dict[str, Any]] = [
                 "correct": 2,
             },
         ],
+        "hint": "Pick the smallest practical knob change for the effect: subtle for smoothing, medium for echo, larger for hall reverb.",
     },
     {
         "id": 4,
@@ -246,6 +248,71 @@ QUIZ: list[dict[str, Any]] = [
             "Track A already gone, transition ended",
         ],
         "correct": 1,
+        "hint": "If Filter is active on A mid-transition, A will likely be lowering while B rises — look for A fading and B rising.",
+    },
+    {
+        "id": 5,
+        "title": "Quiz: Adjust the Filter Knob",
+        "instruction": "Adjust the filter cutoff to the best setting to smoothly remove lows (0-100).",
+        "type": "slider",
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "default": 30,
+        "correct": 28,
+        "tolerance": 6,
+        "hint": "Try a cutoff near 28 — the correct range is roughly 22–34 for a smooth low removal.",
+    },
+    {
+        "id": 6,
+        "title": "Quiz: Set the Tempo",
+        "instruction": "Set the tempo (BPM) that matches the example loop for smooth phrasing.",
+        "type": "slider",
+        "min": 80,
+        "max": 140,
+        "step": 1,
+        "default": 108,
+        "correct": 108,
+        "tolerance": 3,
+        "hint": "Match the loop's BPM — aim for 108 BPM (within ±3 BPM) for smooth phrasing.",
+    },
+    {
+        "id": 7,
+        "title": "Quiz: Set the Board",
+        "instruction": "Using the diagram, adjust the controls to the right configuration for a smooth filter transition. Move the sliders and toggles, then Submit when you think it's correct.",
+        "type": "interactive",
+        "diagram": "/static/images/dj_board_diagram.svg",
+        "controls": ["crossfader", "filter_a", "filter_b", "echo", "gain_a", "gain_b"],
+        "expected": {
+            "crossfader": 50,
+            "crossfader_tol": 12,
+            "filter_a": 25,
+            "filter_tol": 8,
+            "filter_b": 0,
+            "echo": False,
+            "gain_diff_tol": 6
+        },
+        "hint": "Aim for crossfader near center (~50), Filter A around 20–30%, Filter B low, Echo OFF, and gains roughly balanced.",
+    },
+    {
+        "id": 8,
+        "title": "Quiz: Match the Disks",
+        "instruction": "Turn the two jog wheels (disks) to match the shown levels — set both gains to the target and center the crossfader if instructed.",
+        "type": "interactive",
+        "diagram": "/static/images/dj_board_diagram.svg",
+        "controls": ["crossfader", "filter_a", "filter_b", "echo", "gain_a", "gain_b"],
+        "expected": {
+            "crossfader": 50,
+            "crossfader_tol": 12,
+            "filter_a": 30,
+            "filter_tol": 8,
+            "filter_b": 0,
+            "echo": False,
+            "gain_a": 60,
+            "gain_b": 60,
+            "gain_diff_tol": 4
+        },
+        "hint": "Match the disk levels: both gains ~60%, crossfader near center, Filter A slightly up, Echo OFF.",
     },
 ]
 
@@ -323,6 +390,7 @@ def quiz_page(quiz_id: int) -> str:
         quiz_id=quiz_id,
         has_prev=quiz_id > 1,
         next_id=quiz_id + 1,
+        total_quizzes=len(QUIZ),
     )
 
 
@@ -331,13 +399,46 @@ def submit_quiz(quiz_id: int) -> Any:
     question = next((q for q in QUIZ if q["id"] == quiz_id), None)
     if question is None:
         return redirect(url_for("quiz_results"))
-    payload = {k: v for k, v in request.form.items()}
+    # support traditional form posts and JSON/AJAX posts
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+    else:
+        payload = {k: v for k, v in request.form.items()}
 
     answer: Any
     if question["type"] == "single":
         answer = payload.get("choice")
     elif question["type"] == "multi_tf":
         answer = [payload.get(f"tf_{idx}") for idx, _ in enumerate(question["statements"]) ]
+    elif question["type"] == "slider":
+        val = payload.get("slider") or payload.get("value") or payload.get("slider_value")
+        try:
+            answer = int(val)
+        except Exception:
+            answer = None
+    elif question["type"] == "interactive":
+        # expect named controls from the interactive board
+        def to_int(v, default=None):
+            try:
+                return int(v)
+            except Exception:
+                return default
+
+        cross = to_int(payload.get("crossfader") or payload.get("crossfader_val"), None)
+        filter_a = to_int(payload.get("filter_a"), None)
+        filter_b = to_int(payload.get("filter_b"), None)
+        echo_raw = payload.get("echo")
+        echo = True if str(echo_raw).lower() in ("1","true","on","yes") else False
+        gain_a = to_int(payload.get("gain_a"), None)
+        gain_b = to_int(payload.get("gain_b"), None)
+        answer = {
+            "crossfader": cross,
+            "filter_a": filter_a,
+            "filter_b": filter_b,
+            "echo": echo,
+            "gain_a": gain_a,
+            "gain_b": gain_b,
+        }
     else:
         answer = [payload.get(f"scenario_{idx}") for idx, _ in enumerate(question["scenarios"]) ]
 
@@ -346,6 +447,26 @@ def submit_quiz(quiz_id: int) -> Any:
         "quiz_answer",
         {"quiz_id": quiz_id, "answer": answer},
     )
+
+    # If the client expects JSON (AJAX), return immediate feedback including hint when incorrect
+    wants_json = request.is_json or request.headers.get("Accept", "").startswith("application/json")
+    if wants_json:
+        # compute correctness for this single question
+        score, total, details = score_quiz()
+        detail = next((d for d in details if d["id"] == quiz_id), None)
+        resp = {
+            "ok": True,
+            "quiz_id": quiz_id,
+            "correct": detail["correct"] if detail is not None else False,
+            "best_answer": detail["best_answer"] if detail is not None else None,
+            "next": (quiz_id + 1) if quiz_id < len(QUIZ) else None,
+            "next_url": (url_for("quiz_page", quiz_id=quiz_id + 1) if quiz_id < len(QUIZ) else None),
+        }
+        # include hint text if available and the answer was incorrect
+        qobj = next((q for q in QUIZ if q["id"] == quiz_id), {})
+        if not resp["correct"] and qobj.get("hint"):
+            resp["hint"] = qobj["hint"]
+        return jsonify(resp)
 
     if quiz_id >= len(QUIZ):
         return redirect(url_for("quiz_results"))
@@ -373,6 +494,52 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
             best_answer = ", ".join(expected)
             cleaned = ["" if x is None else x for x in (user_answer or [])]
             correct = cleaned == expected
+        elif q["type"] == "slider":
+            # numeric comparison within tolerance
+            try:
+                val = int(user_answer) if user_answer is not None else None
+            except Exception:
+                val = None
+            correct_val = q.get("correct")
+            tol = q.get("tolerance", 0)
+            best_answer = str(correct_val)
+            if val is None:
+                correct = False
+            else:
+                correct = abs(val - int(correct_val)) <= int(tol)
+        elif q["type"] == "interactive":
+            # evaluate numeric tolerances and boolean echo
+            exp = q.get("expected", {})
+            ia_correct = False
+            try:
+                if isinstance(user_answer, dict):
+                    cross = user_answer.get("crossfader")
+                    fa = user_answer.get("filter_a")
+                    fb = user_answer.get("filter_b")
+                    echo_val = user_answer.get("echo")
+                    ga = user_answer.get("gain_a")
+                    gb = user_answer.get("gain_b")
+                    # tolerance checks
+                    cross_ok = (cross is not None and abs(int(cross) - int(exp.get("crossfader", 50))) <= int(exp.get("crossfader_tol", 10)))
+                    fa_ok = (fa is not None and abs(int(fa) - int(exp.get("filter_a", 25))) <= int(exp.get("filter_tol", 8)))
+                    fb_ok = (fb is not None and abs(int(fb) - int(exp.get("filter_b", 0))) <= int(exp.get("filter_tol", 8)))
+                    echo_ok = (bool(echo_val) == bool(exp.get("echo", False)))
+                    gain_ok = True
+                    # if explicit expected gains provided, compare each to its target
+                    if exp.get("gain_a") is not None and exp.get("gain_b") is not None:
+                        ga_ok = (ga is not None and abs(int(ga) - int(exp.get("gain_a"))) <= int(exp.get("gain_diff_tol", 6)))
+                        gb_ok = (gb is not None and abs(int(gb) - int(exp.get("gain_b"))) <= int(exp.get("gain_diff_tol", 6)))
+                        gain_ok = ga_ok and gb_ok
+                    else:
+                        if ga is not None and gb is not None:
+                            gain_ok = abs(int(ga) - int(gb)) <= int(exp.get("gain_diff_tol", 6))
+                    ia_correct = cross_ok and fa_ok and fb_ok and echo_ok and gain_ok
+                    best_answer = f"cross~{exp.get('crossfader')} filterA~{exp.get('filter_a')} echo~{exp.get('echo')}"
+                    correct = ia_correct
+                else:
+                    correct = False
+            except Exception:
+                correct = False
         else:
             expected = [str(s["correct"]) for s in q["scenarios"]]
             best_answer = ", ".join(expected)
