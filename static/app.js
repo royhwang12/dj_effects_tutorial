@@ -852,59 +852,7 @@
       const $panel = $(this).closest(".panel");
       const percent = Number($panel.find(".filter-percent-slider").val() || 50);
       const effect = $(this).data("effect") || "filter";
-      const file = $panel.find(".quiz-custom-clip").get(0)?.files?.[0];
-      if (!file) {
-        await playBuiltInEffectClip(effect, percent);
-      } else {
-        const audio = new Audio(URL.createObjectURL(file));
-        const src = ctx.createMediaElementSource(audio);
-        if (effect === "echo") {
-          const delay = ctx.createDelay(1.2);
-          const fb = ctx.createGain();
-          const wet = ctx.createGain();
-          delay.delayTime.value = 0.24;
-          fb.gain.value = 0.35 + (percent / 100) * 0.4;
-          wet.gain.value = 0.08 + (percent / 100) * 0.65;
-          src.connect(ctx.destination);
-          src.connect(delay);
-          delay.connect(fb);
-          fb.connect(delay);
-          delay.connect(wet);
-          wet.connect(ctx.destination);
-        } else if (effect === "phaser") {
-          const a1 = ctx.createBiquadFilter();
-          const a2 = ctx.createBiquadFilter();
-          const a3 = ctx.createBiquadFilter();
-          const lfo = ctx.createOscillator();
-          const lfoGain = ctx.createGain();
-          a1.type = "allpass";
-          a2.type = "allpass";
-          a3.type = "allpass";
-          a1.Q.value = 2 + (percent / 100) * 12;
-          a2.Q.value = 2 + (percent / 100) * 12;
-          a3.Q.value = 2 + (percent / 100) * 12;
-          lfo.type = "triangle";
-          lfo.frequency.value = 0.65 + (percent / 100) * 3.2;
-          lfoGain.gain.value = 1000 + (percent / 100) * 7000;
-          lfo.connect(lfoGain);
-          lfoGain.connect(a1.frequency);
-          lfoGain.connect(a2.frequency);
-          lfoGain.connect(a3.frequency);
-          src.connect(a1);
-          a1.connect(a2);
-          a2.connect(a3);
-          a3.connect(ctx.destination);
-          lfo.start();
-        } else {
-          const hp = ctx.createBiquadFilter();
-          hp.type = "highpass";
-          hp.frequency.value = cutoffFromKnob(percent);
-          hp.Q.value = 1.3;
-          src.connect(hp);
-          hp.connect(ctx.destination);
-        }
-        audio.play();
-      }
+      await playBuiltInEffectClip(effect, percent);
       track("quiz_effect_clip_play", { effect: effect, effect_percent: percent, quiz_id: window.pageMeta?.quizId || null });
     });
 

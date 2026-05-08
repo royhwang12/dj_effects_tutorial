@@ -61,10 +61,6 @@
         <p class="muted">{{ question.clip_note }}</p>
         <div class="quiz-audio-head">
           <button type="button" class="action-btn action-blue effect-target-play" data-effect="{{ question.effect }}">Play Target Clip</button>
-          <label class="match-field upload-inline">
-            Optional MP3
-            <input type="file" class="quiz-custom-clip" accept=".mp3,audio/mpeg,audio/mp3,audio/*">
-          </label>
         </div>
         <label class="filter-percent-wrap" for="effect_percent">
           {{ question.effect_label }} Amount: <span class="filter-percent-value">50%</span>
