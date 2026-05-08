@@ -319,33 +319,36 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.35rem); font-weight: 600; }
   color: #d8dee7;
 }
 
-.effect-active-btn {
+.effect-active-indicator {
   width: 100%;
-  border: 1px solid #355f9e;
+  border: 1px solid #7c2f2f;
   border-radius: 8px;
   padding: 7px 10px;
   font-weight: 700;
-  color: #b9c4d2;
-  background: #202832;
+  text-align: center;
+  color: #fff;
+  background: #b32b2b;
   margin-bottom: 8px;
+  user-select: none;
+  pointer-events: none;
 }
 
-.effect-active-btn.is-on {
-  background: #2c68c5;
-  border-color: #2c68c5;
+.effect-active-indicator.is-on {
+  background: #b32b2b;
+  border-color: #b32b2b;
   color: #fff;
-  box-shadow: 0 0 0 2px rgba(76, 132, 216, 0.25) inset;
+  box-shadow: 0 0 0 2px rgba(216, 76, 76, 0.28) inset;
   animation: effect-active-blink 0.95s steps(2, end) infinite;
 }
 
 @keyframes effect-active-blink {
   0%, 100% {
-    background: #2c68c5;
-    box-shadow: 0 0 0 2px rgba(76, 132, 216, 0.25) inset, 0 0 10px rgba(64, 134, 235, 0.35);
+    background: #b32b2b;
+    box-shadow: 0 0 0 2px rgba(216, 76, 76, 0.3) inset, 0 0 10px rgba(235, 64, 64, 0.4);
   }
   50% {
-    background: #4f8ee8;
-    box-shadow: 0 0 0 2px rgba(145, 191, 255, 0.35) inset, 0 0 16px rgba(106, 171, 255, 0.65);
+    background: #e24646;
+    box-shadow: 0 0 0 2px rgba(255, 176, 176, 0.4) inset, 0 0 16px rgba(255, 106, 106, 0.7);
   }
 }
 

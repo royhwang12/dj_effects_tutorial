@@ -698,22 +698,6 @@
       });
     });
 
-    $(document).on("click", ".effect-active-btn", function () {
-      const $btn = $(this);
-      const $deck = $btn.closest(".dj-rig");
-      const isOn = $btn.hasClass("is-on");
-      if (isOn) {
-        $btn.removeClass("is-on").text("Effect Bypass");
-        const $knob = $deck.find(".effect-primary-knob");
-        $knob.val(0).trigger("input").trigger("change");
-        track("deck_effect_toggle", { enabled: false, value: 0, route: window.pageMeta?.route || "unknown" });
-        return;
-      }
-
-      $btn.addClass("is-on").text("Effect Active");
-      track("deck_effect_toggle", { enabled: true, route: window.pageMeta?.route || "unknown" });
-    });
-
     $(document).on("input", ".effect-primary-knob", function () {
       const $deck = $(this).closest(".dj-rig");
       const value = Number($(this).val());
@@ -1040,7 +1024,7 @@
         $(document).on('input', '#quiz-gain-a-range', function(){ $('#gain_a').val(Number(this.value||0)); });
         $(document).on('input', '#quiz-gain-b-range', function(){ $('#gain_b').val(Number(this.value||0)); });
         $(document).on('click', '.quiz-echo-toggle', function(){
-          var el = $('#echo'); var cur = el.val() === 'true'; el.val(cur ? 'false' : 'true'); $(this).toggleClass('is-on', !cur); $(this).text(!cur ? 'Effect Active' : 'Effect Active');
+          var el = $('#echo'); var cur = el.val() === 'true'; el.val(cur ? 'false' : 'true'); $(this).toggleClass('is-on', !cur); $(this).text(!cur ? 'Effect On' : 'Effect Bypass');
         });
 
     }, 100);

@@ -126,7 +126,7 @@
                 <p class="live-label">
                   {% if lesson.sample.effect == 'filter' %}FILTER{% elif lesson.sample.effect == 'reverb' %}REVERB FX{% elif lesson.sample.effect == 'phaser' %}PHASER FX{% else %}ECHO FX{% endif %}
                 </p>
-                <button type="button" class="effect-active-btn is-on">Effect Active</button>
+                <div class="effect-active-indicator is-on" aria-label="Effect On">Effect On</div>
                 <div class="knob-shell live-knob-shell">
                   <input type="range" min="0" max="100" value="42" class="knob-range effect-primary-knob" data-control="primary_effect">
                   <div class="knob-face" aria-hidden="true">
