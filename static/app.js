@@ -2,7 +2,11 @@
   let audioContext = null;
   let quizSourceBuffer = null;
   let quizSourceLoading = null;
+  let scratchSfxBuffer = null;
+  let scratchSfxLoading = null;
+  let scratchSfxAudio = null;
   const deckStates = new WeakMap();
+  let scratchSession = null;
   let sequencerTimer = null;
   let sequencerStep = 0;
 
@@ -118,6 +122,70 @@
     gain.connect(context.destination);
     osc.start(start);
     osc.stop(start + (duration || 0.2) + 0.02);
+  }
+
+  async function playScratchSound(intensity) {
+    // Primary path: direct HTML audio playback for maximum audibility/reliability.
+    try {
+      if (!scratchSfxAudio) {
+        scratchSfxAudio = new Audio("/static/audio/scratch_sfx.mp3");
+        scratchSfxAudio.preload = "auto";
+      }
+      const a = scratchSfxAudio.cloneNode(true);
+      a.volume = Math.min(1, 0.45 + Math.min(0.45, (intensity || 0) * 0.04));
+      a.playbackRate = 0.9 + Math.min(0.9, (intensity || 0) * 0.08);
+      a.currentTime = 0;
+      a.play().catch(function () { return; });
+      return;
+    } catch (err) {
+      // fall through to WebAudio fallback
+    }
+
+    // Fallback: WebAudio buffer source
+    const context = getAudioContext();
+    if (scratchSfxBuffer == null) {
+      if (scratchSfxLoading == null) {
+        scratchSfxLoading = fetch("/static/audio/scratch_sfx.mp3")
+          .then(function (resp) {
+            if (!resp.ok) throw new Error("Unable to load scratch sfx");
+            return resp.arrayBuffer();
+          })
+          .then(function (arr) {
+            return context.decodeAudioData(arr);
+          })
+          .then(function (buf) {
+            scratchSfxBuffer = buf;
+            return buf;
+          })
+          .finally(function () {
+            scratchSfxLoading = null;
+          });
+      }
+      try {
+        await scratchSfxLoading;
+      } catch (err) {
+        return;
+      }
+    }
+
+    const now = context.currentTime + 0.001;
+    const src = context.createBufferSource();
+    src.buffer = scratchSfxBuffer;
+    src.playbackRate.value = 0.9 + Math.min(0.9, (intensity || 0) * 0.08);
+    const hp = context.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 900 + Math.min(1800, (intensity || 0) * 170);
+    const gain = context.createGain();
+    const dur = Math.min(0.22, (scratchSfxBuffer?.duration || 0.18));
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(context.destination);
+    src.start(now);
+    src.stop(now + dur);
   }
 
   function cutoffFromKnob(value) {
@@ -343,6 +411,11 @@
     state.nextAt = when + stepDur;
   }
 
+  function setDeckProgress(state, progress) {
+    const p = Math.max(0, Math.min(1, progress));
+    state.$deck.find(".wave-playhead").css("left", (p * 100).toFixed(2) + "%");
+  }
+
   function startDeck($deck) {
     const context = getAudioContext();
     const effectType = $deck.data("effect-type") || "filter";
@@ -446,6 +519,7 @@
       nextAt: context.currentTime,
       audioEl: null,
       mediaSource: null,
+      wasPlayingBeforeScratch: false,
     };
 
     if (sourceType === "custom" || sourceType === "project_mp3") {
@@ -466,7 +540,7 @@
       state.intervalId = setInterval(function () {
         const duration = audioEl.duration || 0;
         const progress = duration > 0 ? (audioEl.currentTime / duration) : 0;
-        state.$deck.find(".wave-playhead").css("left", (Math.max(0, Math.min(1, progress)) * 100).toFixed(2) + "%");
+        setDeckProgress(state, progress);
       }, 80);
       audioEl.play();
     } else {
@@ -826,6 +900,125 @@
     $(document).on("input", ".filter-percent-slider", function () {
       const value = Number($(this).val());
       $(".filter-percent-value").text(value + "%");
+    });
+
+    $(document).on("pointerdown", ".dj-rig .jog-wheel", function (event) {
+      const $wheel = $(this);
+      const $deck = $wheel.closest(".dj-rig");
+      const state = deckStates.get($deck.get(0));
+      if (!state) return;
+      const ctx = getAudioContext();
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(function () { return; });
+      }
+
+      event.preventDefault();
+      $wheel.addClass("scratching");
+      const rect = $wheel.get(0).getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const startAngle = Math.atan2(event.clientY - cy, event.clientX - cx);
+      scratchSession = {
+        state: state,
+        wheel: $wheel,
+        cx: cx,
+        cy: cy,
+        lastAngle: startAngle,
+        lastMoveTs: performance.now(),
+        startTime: state.audioEl ? (state.audioEl.currentTime || 0) : 0,
+        accumTurns: 0,
+        baseGain: state.gainNode.gain.value,
+        filterQBefore: state.filterNode.Q.value,
+        lastScratchSfxAt: 0,
+      };
+
+      if (state.audioEl) {
+        state.wasPlayingBeforeScratch = !state.audioEl.paused;
+        state.audioEl.play().catch(function () { return; });
+      }
+
+      // Play one scratch hit per touch.
+      playScratchSound(4);
+
+      // Make scratch movement more audible while dragging.
+      state.filterNode.Q.setTargetAtTime(Math.max(6, scratchSession.filterQBefore), state.context.currentTime, 0.01);
+    });
+
+    $(document).on("pointermove", function (event) {
+      if (!scratchSession) return;
+      const state = scratchSession.state;
+      const angle = Math.atan2(event.clientY - scratchSession.cy, event.clientX - scratchSession.cx);
+      let delta = angle - scratchSession.lastAngle;
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+      scratchSession.lastAngle = angle;
+      scratchSession.accumTurns += delta / (Math.PI * 2);
+
+      const now = performance.now();
+      const dt = Math.max(1, now - scratchSession.lastMoveTs);
+      scratchSession.lastMoveTs = now;
+      const angularSpeed = Math.min(8, Math.abs(delta) / (dt / 1000)); // rad/s (clamped)
+      const scratchPulse = 0.82 + Math.min(0.35, angularSpeed * 0.03);
+      state.gainNode.gain.setTargetAtTime(scratchSession.baseGain * scratchPulse, state.context.currentTime, 0.01);
+
+      if (state.audioEl) {
+        const dur = state.audioEl.duration || 0;
+        if (dur > 0) {
+          // One full turn scrubs ~20% of track length for precise searching.
+          const nextTime = Math.max(0, Math.min(dur, scratchSession.startTime + scratchSession.accumTurns * dur * 0.2));
+          state.audioEl.currentTime = nextTime;
+          setDeckProgress(state, nextTime / dur);
+        }
+      } else {
+        const stepOffset = Math.round((delta / (Math.PI * 2)) * 16);
+        state.step = Math.max(0, state.step + stepOffset);
+        setDeckProgress(state, (state.step % 32) / 32);
+      }
+    });
+
+    $(document).on("pointerup pointercancel", function () {
+      if (!scratchSession) return;
+      const state = scratchSession.state;
+      scratchSession.wheel.removeClass("scratching");
+      if (state.audioEl && !state.wasPlayingBeforeScratch) {
+        state.audioEl.pause();
+      }
+      state.gainNode.gain.setTargetAtTime(scratchSession.baseGain, state.context.currentTime, 0.04);
+      state.filterNode.Q.setTargetAtTime(scratchSession.filterQBefore, state.context.currentTime, 0.05);
+      scratchSession = null;
+    });
+
+    function seekDeckFromWavePointer(event, $wave) {
+      const $deck = $wave.closest(".dj-rig");
+      const state = deckStates.get($deck.get(0));
+      if (!state) return;
+      const rect = $wave.get(0).getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      setDeckProgress(state, ratio);
+      if (state.audioEl) {
+        const dur = state.audioEl.duration || 0;
+        if (dur > 0) {
+          state.audioEl.currentTime = ratio * dur;
+        }
+      } else {
+        state.step = Math.round(ratio * 32);
+      }
+    }
+
+    $(document).on("pointerdown", ".dj-rig .deck-waveform", function (event) {
+      const $wave = $(this);
+      $wave.data("seeking", true);
+      seekDeckFromWavePointer(event, $wave);
+    });
+
+    $(document).on("pointermove", ".dj-rig .deck-waveform", function (event) {
+      const $wave = $(this);
+      if (!$wave.data("seeking")) return;
+      seekDeckFromWavePointer(event, $wave);
+    });
+
+    $(document).on("pointerup pointercancel", function () {
+      $(".dj-rig .deck-waveform").data("seeking", false);
     });
     // --- Interactive SVG controls for quiz diagram ---
     function svgPoint(svg, x, y) {

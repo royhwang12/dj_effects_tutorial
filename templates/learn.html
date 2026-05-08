@@ -73,6 +73,7 @@
             {% if lesson.sample.effect == 'filter' %}Filter knob{% else %}FX knob{% endif %}
             is interactive for this lesson.
           </p>
+          <p class="muted">Hint: Use either jog wheel to search through the track.</p>
         </div>
 
         <div class="dj-rig dj-controller" data-effect-type="{{ lesson.sample.effect if lesson.sample else 'filter' }}">
@@ -109,7 +110,7 @@
 
           <div class="controller-body">
             <section class="deck-surface">
-              <div class="jog-wheel"><span></span></div>
+              <div class="jog-wheel" data-deck="left" title="Drag to seek / scratch"><span></span></div>
               <div class="pad-row">
                 <span></span><span></span><span></span><span></span>
               </div>
@@ -144,7 +145,7 @@
             </section>
 
             <section class="deck-surface">
-              <div class="jog-wheel"><span></span></div>
+              <div class="jog-wheel" data-deck="right" title="Drag to seek / scratch"><span></span></div>
               <div class="pad-row">
                 <span></span><span></span><span></span><span></span>
               </div>
