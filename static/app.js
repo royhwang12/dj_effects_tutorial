@@ -643,6 +643,18 @@
       const quizId = $form.data("quiz-id");
       track("quiz_submit_click", { quiz_id: quizId });
 
+      const $dndInputs = $form.find(".dnd-input");
+      if ($dndInputs.length) {
+        const hasEmpty = $dndInputs.toArray().some(function (el) { return !$(el).val(); });
+        if (hasEmpty) {
+          $form.find(".quiz-feedback").remove();
+          const $fb = $('<div class="quiz-feedback mt-3 alert alert-warning" />').text("Match all scenarios before submitting.");
+          const $slot = $form.find(".quiz-feedback-slot");
+          if ($slot.length) $slot.empty().append($fb); else $form.append($fb);
+          return;
+        }
+      }
+
       // serialize form fields into an object and include slider if present
       const data = {};
       $form.serializeArray().forEach(function (item) {
@@ -900,6 +912,53 @@
     $(document).on("input", ".filter-percent-slider", function () {
       const value = Number($(this).val());
       $(".filter-percent-value").text(value + "%");
+    });
+
+    let draggingCard = null;
+    $(document).on("dragstart", ".drag-card", function (e) {
+      draggingCard = this;
+      e.originalEvent.dataTransfer.setData("text/plain", $(this).data("effect"));
+    });
+
+    $(document).on("dragover", ".drop-slot", function (e) {
+      e.preventDefault();
+      $(this).addClass("drag-over");
+    });
+
+    $(document).on("dragleave", ".drop-slot", function () {
+      $(this).removeClass("drag-over");
+    });
+
+    $(document).on("drop", ".drop-slot", function (e) {
+      e.preventDefault();
+      $(this).removeClass("drag-over");
+      const effect = e.originalEvent.dataTransfer.getData("text/plain");
+      if (!effect) return;
+
+      const $slot = $(this);
+      const idx = Number($slot.data("index"));
+      const $input = $slot.closest(".drag-row").find(".dnd-input");
+
+      const $existing = $slot.find(".drag-card");
+      if ($existing.length) {
+        $("#drag-bank").append($existing.first());
+      }
+
+      $(".dnd-input").each(function () {
+        if ($(this).val() === effect) {
+          $(this).val("");
+          $(this).closest(".drag-row").find(".drop-slot .drag-card").appendTo("#drag-bank");
+          $(this).closest(".drag-row").find(".drop-placeholder").show();
+        }
+      });
+
+      let $card = draggingCard ? $(draggingCard) : $('#drag-bank .drag-card[data-effect="' + effect + '"]').first();
+      if (!$card.length) return;
+      $slot.find(".drop-placeholder").hide();
+      $slot.append($card);
+      $input.val(effect);
+      draggingCard = null;
+      track("quiz_drag_match_set", { quiz_id: window.pageMeta?.quizId || null, slot: idx, effect: effect });
     });
 
     $(document).on("pointerdown", ".dj-rig .jog-wheel", function (event) {

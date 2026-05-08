@@ -71,6 +71,27 @@
           <input id="effect_percent" type="range" min="0" max="100" value="50" name="effect_percent" class="filter-percent-slider" required>
         </label>
       </article>
+      {% elif question.type == 'drag_match' %}
+      <article class="panel panel-light">
+        <h3>Drag Cards To Scenarios</h3>
+        <p class="muted">Use each effect once.</p>
+        <div class="drag-bank" id="drag-bank">
+          {% for effect in question.effects %}
+          <button type="button" class="drag-card" draggable="true" data-effect="{{ effect }}">{{ effect|capitalize }}</button>
+          {% endfor %}
+        </div>
+        <div class="quiz-stack mt-3">
+          {% for scenario in question.scenarios %}
+          <div class="drag-row">
+            <p>{{ scenario }}</p>
+            <div class="drop-slot" data-index="{{ loop.index0 }}">
+              <span class="drop-placeholder">Drop effect here</span>
+            </div>
+            <input type="hidden" name="dnd_{{ loop.index0 }}" class="dnd-input" value="">
+          </div>
+          {% endfor %}
+        </div>
+      </article>
       {% endif %}
 
       <div class="quiz-feedback-slot mt-3"></div>

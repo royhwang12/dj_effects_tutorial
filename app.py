@@ -230,6 +230,20 @@ QUIZ: list[dict[str, Any]] = [
         "target_min": 65,
         "target_max": 85,
     },
+    {
+        "id": 6,
+        "title": "Quiz: Drag And Match Scenarios",
+        "instruction": "Drag each effect card onto the scenario where it fits best.",
+        "type": "drag_match",
+        "effects": ["filter", "echo", "reverb", "phaser"],
+        "scenarios": [
+            "You want rhythmic repeats on a vocal hit before a drop.",
+            "You want to cut lows while blending two tracks.",
+            "You want a wide room/hall space on an outgoing phrase.",
+            "You want a swirling moving texture for tension.",
+        ],
+        "correct": ["echo", "filter", "reverb", "phaser"],
+    },
 ]
 
 APP_STATE: dict[str, Any] = {
@@ -328,6 +342,8 @@ def submit_quiz(quiz_id: int) -> Any:
         answer = [payload.get(f"sample_{idx}") for idx, _ in enumerate(question["samples"])]
     elif question["type"] == "effect_percent":
         answer = payload.get("effect_percent")
+    elif question["type"] == "drag_match":
+        answer = [payload.get(f"dnd_{idx}") for idx, _ in enumerate(question["scenarios"])]
     else:
         answer = payload.get("choice")
 
@@ -398,6 +414,13 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
                 value = -1
             correct = q["target_min"] <= value <= q["target_max"]
             best_answer = f"{q['target_min']}% to {q['target_max']}%"
+        elif q["type"] == "drag_match":
+            expected = q["correct"]
+            cleaned = ["" if x is None else x for x in (user_answer or [])]
+            correct = cleaned == expected
+            best_answer = ", ".join(
+                f"{q['scenarios'][i]} -> {q['correct'][i].capitalize()}" for i in range(len(q["scenarios"]))
+            )
         else:
             best_answer = ""
             correct = False
