@@ -144,6 +144,102 @@
     return impulse;
   }
 
+  function playQuizEffectSample(effect) {
+    const context = getAudioContext();
+    const start = context.currentTime + 0.03;
+    const master = context.createGain();
+    master.gain.value = 0.55;
+    master.connect(context.destination);
+
+    const tone = context.createOscillator();
+    const toneGain = context.createGain();
+    tone.type = "sawtooth";
+    tone.frequency.setValueAtTime(220, start);
+    toneGain.gain.setValueAtTime(0.0001, start);
+    toneGain.gain.exponentialRampToValueAtTime(0.28, start + 0.02);
+    toneGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.95);
+    tone.connect(toneGain);
+
+    if (effect === "filter") {
+      const hp = context.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.setValueAtTime(200, start);
+      hp.frequency.exponentialRampToValueAtTime(5000, start + 0.9);
+      toneGain.connect(hp);
+      hp.connect(master);
+    } else if (effect === "echo") {
+      const delay = context.createDelay(1.2);
+      const fb = context.createGain();
+      delay.delayTime.value = 0.25;
+      fb.gain.value = 0.4;
+      toneGain.connect(master);
+      toneGain.connect(delay);
+      delay.connect(fb);
+      fb.connect(delay);
+      delay.connect(master);
+    } else if (effect === "reverb") {
+      const conv = context.createConvolver();
+      conv.buffer = createImpulseResponse(context, 2.5, 2.4);
+      toneGain.connect(master);
+      toneGain.connect(conv);
+      conv.connect(master);
+    } else if (effect === "phaser") {
+      const a1 = context.createBiquadFilter();
+      const a2 = context.createBiquadFilter();
+      const lfo = context.createOscillator();
+      const lfoGain = context.createGain();
+      a1.type = "allpass";
+      a2.type = "allpass";
+      lfo.type = "triangle";
+      lfo.frequency.value = 1.7;
+      lfoGain.gain.value = 2800;
+      lfo.connect(lfoGain);
+      lfoGain.connect(a1.frequency);
+      lfoGain.connect(a2.frequency);
+      toneGain.connect(a1);
+      a1.connect(a2);
+      a2.connect(master);
+      lfo.start(start);
+      lfo.stop(start + 1.0);
+    } else {
+      toneGain.connect(master);
+    }
+
+    tone.start(start);
+    tone.stop(start + 1.0);
+  }
+
+  function playBuiltInDropClip(filterPercent) {
+    const context = getAudioContext();
+    const start = context.currentTime + 0.03;
+    const hp = context.createBiquadFilter();
+    const cutoff = cutoffFromKnob(Number(filterPercent));
+    hp.type = "highpass";
+    hp.frequency.setValueAtTime(cutoff, start);
+    hp.Q.value = 1.2;
+
+    const master = context.createGain();
+    master.gain.value = 0.62;
+    hp.connect(master);
+    master.connect(context.destination);
+
+    const notes = [55, 55, 65.41, 73.42, 82.41, 98];
+    notes.forEach(function (freq, idx) {
+      const when = start + idx * 0.18;
+      const osc = context.createOscillator();
+      const g = context.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, when);
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(0.25, when + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + 0.16);
+      osc.connect(g);
+      g.connect(hp);
+      osc.start(when);
+      osc.stop(when + 0.18);
+    });
+  }
+
   function runDeckStep(state) {
     const context = state.context;
     const stepDur = 60 / state.bpm / 4;
@@ -606,8 +702,7 @@
       }
     });
 
-    $(document).on("click", ".music-pad", async function () {
-      const frequency = Number($(this).data("note"));
+    $(document).on("click", ".quiz-sample-play, .filter-target-play", async function () {
       const ctx = getAudioContext();
       if (ctx.state === "suspended") {
         try {

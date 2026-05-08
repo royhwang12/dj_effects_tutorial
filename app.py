@@ -173,13 +173,15 @@ LESSONS: list[dict[str, Any]] = [
 QUIZ: list[dict[str, Any]] = [
     {
         "id": 1,
-        "title": "Quiz: Sort the Steps",
-        "instruction": "Pick the correct order for a clean filter transition.",
-        "type": "single",
-        "choices": [
-            "Turn filter high-pass -> bring up Track B -> move crossfader -> release filter",
-            "Bring up Track B -> release filter -> crossfader -> high-pass",
-            "Crossfader first -> filter sweep -> Track B volume -> release filter",
+        "title": "Quiz: Match The Definition",
+        "instruction": "Match each definition to the correct effect.",
+        "type": "match_defs",
+        "terms": ["Filter", "Echo", "Reverb", "Phaser"],
+        "definitions": [
+            "Repeating tail in rhythm",
+            "Swirling sweep with moving notches",
+            "Removes highs or lows from the signal",
+            "Creates a room or hall-like space",
         ],
         "correct": 0,
         "hint": "Think: engage a high-pass first, bring in the incoming track, move the crossfader, then release the filter.",
@@ -406,7 +408,13 @@ def submit_quiz(quiz_id: int) -> Any:
         payload = {k: v for k, v in request.form.items()}
 
     answer: Any
-    if question["type"] == "single":
+    if question["type"] == "match_defs":
+        answer = [payload.get(f"match_{idx}") for idx, _ in enumerate(question["definitions"])]
+    elif question["type"] == "audio_identify":
+        answer = [payload.get(f"sample_{idx}") for idx, _ in enumerate(question["samples"])]
+    elif question["type"] == "filter_percent":
+        answer = payload.get("filter_percent")
+    else:
         answer = payload.get("choice")
     elif question["type"] == "multi_tf":
         answer = [payload.get(f"tf_{idx}") for idx, _ in enumerate(question["statements"]) ]
@@ -489,9 +497,11 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
             correct_index = q["correct"]
             best_answer = q["choices"][correct_index]
             correct = str(correct_index) == str(user_answer)
-        elif q["type"] == "multi_tf":
-            expected = ["true" if s["correct"] else "false" for s in q["statements"]]
-            best_answer = ", ".join(expected)
+        elif q["type"] == "match_defs":
+            expected = [str(idx) for idx in q["correct"]]
+            best_answer = ", ".join(
+                f"{q['definitions'][i]} -> {q['terms'][q['correct'][i]]}" for i in range(len(q["definitions"]))
+            )
             cleaned = ["" if x is None else x for x in (user_answer or [])]
             correct = cleaned == expected
         elif q["type"] == "slider":
@@ -545,6 +555,13 @@ def score_quiz() -> tuple[int, int, list[dict[str, Any]]]:
             best_answer = ", ".join(expected)
             cleaned = ["" if x is None else x for x in (user_answer or [])]
             correct = cleaned == expected
+        elif q["type"] == "filter_percent":
+            try:
+                value = int(user_answer) if user_answer is not None else -1
+            except ValueError:
+                value = -1
+            correct = q["target_min"] <= value <= q["target_max"]
+            best_answer = f"{q['target_min']}% to {q['target_max']}%"
 
         if correct:
             score += 1

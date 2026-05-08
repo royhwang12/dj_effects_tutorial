@@ -518,6 +518,38 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.35rem); font-weight: 600; }
 .scenario-options { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .tf-row { display: flex; gap: 10px; margin-top: 12px; }
 
+.match-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.match-field select,
+.match-field input[type="file"] {
+  border: 1px solid #3a424c;
+  border-radius: 8px;
+  background: #131920;
+  color: #d9e1eb;
+  padding: 8px;
+}
+
+.quiz-audio-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-percent-wrap {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.filter-percent-slider { width: 100%; accent-color: #4a83d8; }
+
 .music-lab { margin-top: 12px; background: #1c2229; }
 .music-pads { margin-top: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .music-pad {
