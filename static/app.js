@@ -983,7 +983,7 @@
         cy: cy,
         lastAngle: startAngle,
         lastMoveTs: performance.now(),
-        startTime: state.audioEl ? (state.audioEl.currentTime || 0) : 0,
+        currentTime: state.audioEl ? (state.audioEl.currentTime || 0) : 0,
         accumTurns: 0,
         baseGain: state.gainNode.gain.value,
         filterQBefore: state.filterNode.Q.value,
@@ -1021,8 +1021,10 @@
       if (state.audioEl) {
         const dur = state.audioEl.duration || 0;
         if (dur > 0) {
-          // One full turn scrubs ~20% of track length for precise searching.
-          const nextTime = Math.max(0, Math.min(dur, scratchSession.startTime + scratchSession.accumTurns * dur * 0.2));
+          // Incremental scrub prevents snapping back on release.
+          const deltaTurns = delta / (Math.PI * 2);
+          const nextTime = Math.max(0, Math.min(dur, scratchSession.currentTime + deltaTurns * dur * 0.2));
+          scratchSession.currentTime = nextTime;
           state.audioEl.currentTime = nextTime;
           setDeckProgress(state, nextTime / dur);
         }
@@ -1037,6 +1039,14 @@
       if (!scratchSession) return;
       const state = scratchSession.state;
       scratchSession.wheel.removeClass("scratching");
+      if (state.audioEl) {
+        const dur = state.audioEl.duration || 0;
+        if (dur > 0) {
+          const locked = Math.max(0, Math.min(dur, scratchSession.currentTime || state.audioEl.currentTime || 0));
+          state.audioEl.currentTime = locked;
+          setDeckProgress(state, locked / dur);
+        }
+      }
       state.gainNode.gain.setTargetAtTime(scratchSession.baseGain, state.context.currentTime, 0.04);
       state.filterNode.Q.setTargetAtTime(scratchSession.filterQBefore, state.context.currentTime, 0.05);
       scratchSession = null;
