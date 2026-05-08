@@ -519,7 +519,6 @@
       nextAt: context.currentTime,
       audioEl: null,
       mediaSource: null,
-      wasPlayingBeforeScratch: false,
     };
 
     if (sourceType === "custom" || sourceType === "project_mp3") {
@@ -992,7 +991,6 @@
       };
 
       if (state.audioEl) {
-        state.wasPlayingBeforeScratch = !state.audioEl.paused;
         state.audioEl.play().catch(function () { return; });
       }
 
@@ -1039,9 +1037,6 @@
       if (!scratchSession) return;
       const state = scratchSession.state;
       scratchSession.wheel.removeClass("scratching");
-      if (state.audioEl && !state.wasPlayingBeforeScratch) {
-        state.audioEl.pause();
-      }
       state.gainNode.gain.setTargetAtTime(scratchSession.baseGain, state.context.currentTime, 0.04);
       state.filterNode.Q.setTargetAtTime(scratchSession.filterQBefore, state.context.currentTime, 0.05);
       scratchSession = null;
