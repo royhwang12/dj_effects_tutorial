@@ -619,6 +619,19 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.35rem); font-weight: 600; }
   gap: 12px;
 }
 
+.result-card.result-correct {
+  border-color: #2c6845;
+  background: linear-gradient(180deg, #17271f 0%, #142219 100%);
+}
+
+.result-card.result-incorrect {
+  border-color: #7a2f35;
+  background: linear-gradient(180deg, #2a1c20 0%, #211518 100%);
+}
+
+.status-correct { color: #65d990; }
+.status-incorrect { color: #ff7878; }
+
 .tip {
   font-size: 0.94rem;
   color: #c3ccd6;

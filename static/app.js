@@ -1,5 +1,7 @@
 (function () {
   let audioContext = null;
+  let quizSourceBuffer = null;
+  let quizSourceLoading = null;
   const deckStates = new WeakMap();
   let sequencerTimer = null;
   let sequencerStep = 0;
@@ -144,100 +146,177 @@
     return impulse;
   }
 
-  function playQuizEffectSample(effect) {
+  async function getQuizSourceBuffer() {
     const context = getAudioContext();
-    const start = context.currentTime + 0.03;
+    if (quizSourceBuffer) return quizSourceBuffer;
+    if (quizSourceLoading) return quizSourceLoading;
+
+    quizSourceLoading = fetch("/static/audio/quiz_source.mp3")
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("Unable to load quiz source mp3");
+        return resp.arrayBuffer();
+      })
+      .then(function (arr) {
+        return context.decodeAudioData(arr);
+      })
+      .then(function (buffer) {
+        quizSourceBuffer = buffer;
+        return buffer;
+      })
+      .finally(function () {
+        quizSourceLoading = null;
+      });
+
+    return quizSourceLoading;
+  }
+
+  async function playQuizEffectSample(effect) {
+    const context = getAudioContext();
+    const buffer = await getQuizSourceBuffer();
+    const start = context.currentTime + 0.02;
     const master = context.createGain();
     master.gain.value = 0.55;
     master.connect(context.destination);
 
-    const tone = context.createOscillator();
-    const toneGain = context.createGain();
-    tone.type = "sawtooth";
-    tone.frequency.setValueAtTime(220, start);
-    toneGain.gain.setValueAtTime(0.0001, start);
-    toneGain.gain.exponentialRampToValueAtTime(0.28, start + 0.02);
-    toneGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.95);
-    tone.connect(toneGain);
+    const src = context.createBufferSource();
+    src.buffer = buffer;
+
+    const preGain = context.createGain();
+    preGain.gain.value = 0.9;
+    src.connect(preGain);
 
     if (effect === "filter") {
       const hp = context.createBiquadFilter();
       hp.type = "highpass";
       hp.frequency.setValueAtTime(200, start);
-      hp.frequency.exponentialRampToValueAtTime(5000, start + 0.9);
-      toneGain.connect(hp);
+      hp.frequency.exponentialRampToValueAtTime(7000, start + 2.4);
+      hp.Q.value = 1.1;
+      preGain.connect(hp);
       hp.connect(master);
     } else if (effect === "echo") {
       const delay = context.createDelay(1.2);
       const fb = context.createGain();
-      delay.delayTime.value = 0.25;
-      fb.gain.value = 0.4;
-      toneGain.connect(master);
-      toneGain.connect(delay);
+      delay.delayTime.value = 0.24;
+      fb.gain.value = 0.45;
+      preGain.connect(master);
+      preGain.connect(delay);
       delay.connect(fb);
       fb.connect(delay);
       delay.connect(master);
     } else if (effect === "reverb") {
       const conv = context.createConvolver();
       conv.buffer = createImpulseResponse(context, 2.5, 2.4);
-      toneGain.connect(master);
-      toneGain.connect(conv);
+      preGain.connect(master);
+      preGain.connect(conv);
       conv.connect(master);
     } else if (effect === "phaser") {
       const a1 = context.createBiquadFilter();
       const a2 = context.createBiquadFilter();
+      const a3 = context.createBiquadFilter();
+      const fb = context.createGain();
       const lfo = context.createOscillator();
       const lfoGain = context.createGain();
       a1.type = "allpass";
       a2.type = "allpass";
+      a3.type = "allpass";
+      a1.Q.value = 10;
+      a2.Q.value = 10;
+      a3.Q.value = 10;
       lfo.type = "triangle";
-      lfo.frequency.value = 1.7;
-      lfoGain.gain.value = 2800;
+      lfo.frequency.value = 2.6;
+      lfoGain.gain.value = 5200;
+      fb.gain.value = 0.58;
       lfo.connect(lfoGain);
       lfoGain.connect(a1.frequency);
       lfoGain.connect(a2.frequency);
-      toneGain.connect(a1);
+      lfoGain.connect(a3.frequency);
+      preGain.connect(a1);
       a1.connect(a2);
-      a2.connect(master);
+      a2.connect(a3);
+      a3.connect(fb);
+      fb.connect(a1);
+      a3.connect(master);
       lfo.start(start);
-      lfo.stop(start + 1.0);
+      lfo.stop(start + 2.6);
     } else {
-      toneGain.connect(master);
+      preGain.connect(master);
     }
 
-    tone.start(start);
-    tone.stop(start + 1.0);
+    src.start(start, 0, 2.6);
   }
 
-  function playBuiltInDropClip(filterPercent) {
+  async function playBuiltInEffectClip(effect, amountPercent) {
     const context = getAudioContext();
-    const start = context.currentTime + 0.03;
-    const hp = context.createBiquadFilter();
-    const cutoff = cutoffFromKnob(Number(filterPercent));
-    hp.type = "highpass";
-    hp.frequency.setValueAtTime(cutoff, start);
-    hp.Q.value = 1.2;
-
+    const buffer = await getQuizSourceBuffer();
+    const start = context.currentTime + 0.02;
     const master = context.createGain();
     master.gain.value = 0.62;
-    hp.connect(master);
     master.connect(context.destination);
+    const src = context.createBufferSource();
+    src.buffer = buffer;
+    const amount = Math.max(0, Math.min(1, Number(amountPercent || 0) / 100));
 
-    const notes = [55, 55, 65.41, 73.42, 82.41, 98];
-    notes.forEach(function (freq, idx) {
-      const when = start + idx * 0.18;
-      const osc = context.createOscillator();
-      const g = context.createGain();
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(freq, when);
-      g.gain.setValueAtTime(0.0001, when);
-      g.gain.exponentialRampToValueAtTime(0.25, when + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + 0.16);
-      osc.connect(g);
-      g.connect(hp);
-      osc.start(when);
-      osc.stop(when + 0.18);
-    });
+    if (effect === "echo") {
+      const dry = context.createGain();
+      const delay = context.createDelay(1.2);
+      const fb = context.createGain();
+      const wet = context.createGain();
+      dry.gain.value = 1;
+      delay.delayTime.value = 0.24;
+      fb.gain.value = 0.35 + amount * 0.4;
+      wet.gain.value = 0.08 + amount * 0.65;
+      src.connect(dry);
+      dry.connect(master);
+      src.connect(delay);
+      delay.connect(fb);
+      fb.connect(delay);
+      delay.connect(wet);
+      wet.connect(master);
+    } else if (effect === "phaser") {
+      const a1 = context.createBiquadFilter();
+      const a2 = context.createBiquadFilter();
+      const a3 = context.createBiquadFilter();
+      const fb = context.createGain();
+      const lfo = context.createOscillator();
+      const lfoGain = context.createGain();
+      const wet = context.createGain();
+
+      a1.type = "allpass";
+      a2.type = "allpass";
+      a3.type = "allpass";
+      a1.Q.value = 2 + amount * 12;
+      a2.Q.value = 2 + amount * 12;
+      a3.Q.value = 2 + amount * 12;
+      lfo.type = "triangle";
+      lfo.frequency.value = 0.65 + amount * 3.2;
+      lfoGain.gain.value = 1000 + amount * 7000;
+      fb.gain.value = 0.24 + amount * 0.45;
+      wet.gain.value = 0.1 + amount * 0.8;
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(a1.frequency);
+      lfoGain.connect(a2.frequency);
+      lfoGain.connect(a3.frequency);
+      src.connect(a1);
+      a1.connect(a2);
+      a2.connect(a3);
+      a3.connect(fb);
+      fb.connect(a1);
+      a3.connect(wet);
+      wet.connect(master);
+      lfo.start(start);
+      lfo.stop(start + 3.0);
+    } else {
+      const hp = context.createBiquadFilter();
+      const cutoff = cutoffFromKnob(amountPercent);
+      hp.type = "highpass";
+      hp.frequency.setValueAtTime(cutoff, start);
+      hp.Q.value = 1.4;
+      src.connect(hp);
+      hp.connect(master);
+    }
+
+    src.start(start, 0, 3.0);
   }
 
   function runDeckStep(state) {
@@ -369,12 +448,16 @@
       mediaSource: null,
     };
 
-    if (sourceType === "custom") {
+    if (sourceType === "custom" || sourceType === "project_mp3") {
       const file = $deck.find(".custom-audio-input").get(0)?.files?.[0];
-      if (!file) {
+      const audioEl = new Audio(
+        sourceType === "project_mp3"
+          ? "/static/audio/quiz_source.mp3"
+          : (file ? URL.createObjectURL(file) : "")
+      );
+      if (sourceType === "custom" && !file) {
         return null;
       }
-      const audioEl = new Audio(URL.createObjectURL(file));
       audioEl.loop = true;
       const mediaSource = context.createMediaElementSource(audioEl);
       mediaSource.connect(inputNode);
@@ -433,11 +516,17 @@
     const $btn = $deck.find(".transport-toggle");
     const sourceType = $deck.find(".audio-source-select").val() || "house";
     const onLabel = $btn.data("label-on") || "Stop";
-    const offLabel = sourceType === "custom" ? "Play Custom MP3" : ($btn.data("label-off") || "Play");
+    const offLabel = sourceType === "custom"
+      ? "Play Custom MP3"
+      : (sourceType === "project_mp3" ? "Play Project MP3" : ($btn.data("label-off") || "Play"));
     $btn.text(isOn ? onLabel : offLabel);
     $deck.find(".deck-status-text").text(
       isOn
-        ? (sourceType === "custom" ? "Deck running - custom track loaded" : "Deck running - house loop loaded")
+        ? (
+            sourceType === "custom"
+              ? "Deck running - custom track loaded"
+              : (sourceType === "project_mp3" ? "Deck running - project MP3 loaded" : "Deck running - house loop loaded")
+          )
         : "Deck stopped"
     );
     $deck.find(".deck-status-light").toggleClass("live", !!isOn);
@@ -494,7 +583,7 @@
         contentType: 'application/json',
         data: JSON.stringify(data),
       }).done(function (resp) {
-        // show inline feedback
+        // show inline feedback below question content
         $form.find('.quiz-feedback').remove();
         const $fb = $('<div class="quiz-feedback mt-3" />');
         if (resp && resp.ok) {
@@ -512,7 +601,12 @@
         } else {
           $fb.addClass('alert alert-warning').text('Could not submit the answer.');
         }
-        $form.prepend($fb);
+        const $slot = $form.find('.quiz-feedback-slot');
+        if ($slot.length) {
+          $slot.empty().append($fb);
+        } else {
+          $form.append($fb);
+        }
       }).fail(function () {
         // fallback to full form submit
         $form.off('submit').submit();
@@ -671,38 +765,18 @@
       });
     });
 
-    $(document).on("input", ".confidence-slider", function () {
-      const value = Number($(this).val());
-      $(".confidence-value").text(value + "%");
-    });
-
-    $(document).on("change", ".confidence-slider", function () {
-      track("quiz_confidence_set", {
-        quiz_id: window.pageMeta?.quizId || null,
-        confidence: Number($(this).val()),
-      });
-    });
-
-    // live quiz slider (used for slider-type quiz questions)
-    $(document).on('input', '#quiz-slider', function () {
-      $('#quiz-slider-value').text(this.value);
-    });
-    $(document).on('change', '#quiz-slider', function () {
-      track('quiz_slider_set', { quiz_id: window.pageMeta?.quizId || null, value: Number(this.value) });
-    });
-
     $(document).on("keydown", function (event) {
       const key = event.key;
       if (!window.pageMeta || !window.pageMeta.quizId) return;
       if (key < "1" || key > "4") return;
-      const idx = Number(key) - 1;
-      const $singleChoices = $('.quiz-form input[type="radio"][name="choice"]');
-      if ($singleChoices.length && idx < $singleChoices.length) {
-        $singleChoices.eq(idx).prop("checked", true).trigger("change");
+      const idx = Number(key) - 1;      
+      const $choices = $('.quiz-form input[type="radio"]');
+      if ($choices.length && idx < $choices.length) {
+        $choices.eq(idx).prop("checked", true).trigger("change");
       }
     });
 
-    $(document).on("click", ".quiz-sample-play, .filter-target-play", async function () {
+    $(document).on("click", ".quiz-sample-play, .effect-target-play", async function () {
       const ctx = getAudioContext();
       if (ctx.state === "suspended") {
         try {
@@ -711,49 +785,75 @@
           return;
         }
       }
-      playPadNote(frequency, 0.22, 0.23, "triangle");
-      $(this).addClass("active");
-      setTimeout(() => $(this).removeClass("active"), 130);
-      track("quiz_music_pad", {
-        note: frequency,
-        quiz_id: window.pageMeta?.quizId || null,
-      });
-    });
-
-    $(document).on("input", ".tempo-slider", function () {
-      $(".tempo-value").text($(this).val() + " BPM");
-    });
-
-    $(document).on("click", ".seq-step", function () {
-      $(this).toggleClass("active");
-    });
-
-    $(document).on("click", ".seq-toggle-btn", async function () {
-      const ctx = getAudioContext();
-      if (ctx.state === "suspended") {
-        try {
-          await ctx.resume();
-        } catch (err) {
-          return;
-        }
-      }
-
-      if (sequencerTimer) {
-        clearInterval(sequencerTimer);
-        sequencerTimer = null;
-        clearSequencerPulse();
-        $(this).text("Play Loop").removeClass("is-live");
-        track("quiz_sequencer_stop", { quiz_id: window.pageMeta?.quizId || null });
+      if ($(this).hasClass("quiz-sample-play")) {
+        const effect = $(this).data("effect");
+        await playQuizEffectSample(effect);
+        track("quiz_sample_play", { effect: effect, quiz_id: window.pageMeta?.quizId || null });
         return;
       }
 
-      const bpm = Number($(".tempo-slider").val() || 108);
-      const stepMs = Math.round((60000 / bpm) / 2);
-      sequencerStep = 0;
-      runSequencerTick();
-      sequencerTimer = setInterval(runSequencerTick, stepMs);
-      $(this).text("Stop Loop").addClass("is-live");
-      track("quiz_sequencer_start", { quiz_id: window.pageMeta?.quizId || null, bpm: bpm });
+      const $panel = $(this).closest(".panel");
+      const percent = Number($panel.find(".filter-percent-slider").val() || 50);
+      const effect = $(this).data("effect") || "filter";
+      const file = $panel.find(".quiz-custom-clip").get(0)?.files?.[0];
+      if (!file) {
+        await playBuiltInEffectClip(effect, percent);
+      } else {
+        const audio = new Audio(URL.createObjectURL(file));
+        const src = ctx.createMediaElementSource(audio);
+        if (effect === "echo") {
+          const delay = ctx.createDelay(1.2);
+          const fb = ctx.createGain();
+          const wet = ctx.createGain();
+          delay.delayTime.value = 0.24;
+          fb.gain.value = 0.35 + (percent / 100) * 0.4;
+          wet.gain.value = 0.08 + (percent / 100) * 0.65;
+          src.connect(ctx.destination);
+          src.connect(delay);
+          delay.connect(fb);
+          fb.connect(delay);
+          delay.connect(wet);
+          wet.connect(ctx.destination);
+        } else if (effect === "phaser") {
+          const a1 = ctx.createBiquadFilter();
+          const a2 = ctx.createBiquadFilter();
+          const a3 = ctx.createBiquadFilter();
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          a1.type = "allpass";
+          a2.type = "allpass";
+          a3.type = "allpass";
+          a1.Q.value = 2 + (percent / 100) * 12;
+          a2.Q.value = 2 + (percent / 100) * 12;
+          a3.Q.value = 2 + (percent / 100) * 12;
+          lfo.type = "triangle";
+          lfo.frequency.value = 0.65 + (percent / 100) * 3.2;
+          lfoGain.gain.value = 1000 + (percent / 100) * 7000;
+          lfo.connect(lfoGain);
+          lfoGain.connect(a1.frequency);
+          lfoGain.connect(a2.frequency);
+          lfoGain.connect(a3.frequency);
+          src.connect(a1);
+          a1.connect(a2);
+          a2.connect(a3);
+          a3.connect(ctx.destination);
+          lfo.start();
+        } else {
+          const hp = ctx.createBiquadFilter();
+          hp.type = "highpass";
+          hp.frequency.value = cutoffFromKnob(percent);
+          hp.Q.value = 1.3;
+          src.connect(hp);
+          hp.connect(ctx.destination);
+        }
+        audio.play();
+      }
+      track("quiz_effect_clip_play", { effect: effect, effect_percent: percent, quiz_id: window.pageMeta?.quizId || null });
+    });
+
+    $(document).on("input", ".filter-percent-slider", function () {
+      const value = Number($(this).val());
+      $(".filter-percent-value").text(value + "%");
     });
     // --- Interactive SVG controls for quiz diagram ---
     function svgPoint(svg, x, y) {

@@ -18,9 +18,9 @@
 
     <div class="results-grid mb-4">
       {% for item in details %}
-      <article class="panel {{ 'panel-green' if item.correct else 'panel-purple' }}">
+      <article class="panel result-card {{ 'result-correct' if item.correct else 'result-incorrect' }}">
         <h3>Q{{ item.id }}: {{ item.title }}</h3>
-        <p>Status: <strong>{{ 'Correct' if item.correct else 'Incorrect' }}</strong></p>
+        <p>Status: <strong class="{{ 'status-correct' if item.correct else 'status-incorrect' }}">{{ 'Correct' if item.correct else 'Incorrect' }}</strong></p>
         <p>
           Your answer:
           {% if item.user_answer is sequence and item.user_answer is not string %}

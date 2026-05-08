@@ -69,7 +69,7 @@
         <div class="dj-rig-head">
           <h3>DJ Board</h3>
           <p class="muted">
-            House loop is loaded. Only the
+            Project MP3 is loaded by default. Only the
             {% if lesson.sample.effect == 'filter' %}Filter knob{% else %}FX knob{% endif %}
             is interactive for this lesson.
           </p>
@@ -80,7 +80,8 @@
             <label>
               Audio source
               <select class="audio-source-select">
-                <option value="house" selected>Default House Loop</option>
+                <option value="project_mp3" selected>Project MP3 (Default)</option>
+                <option value="house">Default House Loop</option>
                 <option value="custom">Custom MP3</option>
               </select>
             </label>
@@ -90,7 +91,7 @@
             </label>
           </div>
           <div class="deck-top-row">
-            <button type="button" class="action-btn action-blue transport-toggle" data-label-on="Stop Deck" data-label-off="Play House Loop">Play House Loop</button>
+            <button type="button" class="action-btn action-blue transport-toggle" data-label-on="Stop Deck" data-label-off="Play Project MP3">Play Project MP3</button>
             <div class="deck-status-wrap">
               <span class="deck-status-light" aria-hidden="true"></span>
               <span class="deck-status-text">Deck stopped</span>
