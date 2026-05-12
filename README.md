@@ -4,8 +4,8 @@ Flask + HTML/JS/jQuery/Bootstrap implementation of the Week 10 prototype.
 
 # Team Members
 
-- Roy Hwang — roywhang12
-- Adam Kleshchelski — akleshchelki
+- Roy Hwang — royhwang12
+- Adam Kleshchelski — akleshchelski
 
 ## Run
 
